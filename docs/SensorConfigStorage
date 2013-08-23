@@ -1,0 +1,6 @@
+The purpose of Sensor configuration storage is to allow the system to more fully understand when each sensor has responded.
+There will be two ways of storing the configuration.  The server will have a "map" or "list" in its database of the receivers network.
+The receiver will also store its list of connected sensors in binary format on its local filesystem.
+The local receiver system must hold the sensor ID and the last known transmission of that sensor.
+
+On any reboot, the receiver must have a silent time for about 90 seconds to prevent squawking to the server about lost sensors due to the time it takes on a reboot.

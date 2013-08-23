@@ -1,0 +1,50 @@
+///
+/// WARNING:  THIS HEADER FILE MAY CAUSE BRAIN DAMAGE IF YOU TRY TO UNDERSTAND IT'S CONTENTS.
+/// IF YOU WISH TO REMAIN SANE, PLEASE STAY OUT!
+///
+/// EDIT:  It's a little more sane now that I don't use boost.
+
+// (That's my way of knowing you I hate myself for writing such ugly code.)
+
+#ifndef SERIAL_H
+#define SERIAL_H
+
+#include <string>
+
+using std::string;
+
+class SerialPort {
+	public:
+		const static int DEFAULT_TIMEOUT_PER_CHAR = 10; // ms
+
+		SerialPort(string port, int baud);
+		bool readByte(unsigned char* p_c);
+
+		// NOW WITH THE ALL-NEW, PAIN-IN-THE-NECK IMPLEMENTATION OF TIMEOUTS!!!
+		// Also returns the amount of bytes read.
+		int read(void* buffer, int len);
+		void write(const void* buffer, int len);
+		
+		// Sets the time (in ms) that this object waits between chars. (Default is 1000/baud*25)
+		void setCharTmo(unsigned int tmo) {
+			charReadTimeout = (tmo<0) ? 0 : tmo;
+			__timeout_struct.tv_usec = charReadTimeout*1000;
+		}
+
+		unsigned int getCharTmo() {
+			return charReadTimeout;
+		}
+	private:
+		FILE* portFile;
+
+		// OK, Just to sort things out:
+		// true means that the read timed out.
+		// false means successful.
+		bool readError;
+		int numBytesRead;
+
+		unsigned int charReadTimeout;
+		struct timeval __timeout_struct;
+};
+
+#endif

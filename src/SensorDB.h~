@@ -1,0 +1,47 @@
+/*
+ * SensorDB.h
+ *
+ *  Created on: Aug 19, 2013
+ *      Author: kent
+ */
+
+#ifndef SENSORDB_H_
+#define SENSORDB_H_
+
+#include <string>
+
+
+class SensorDB {
+public:
+	SensorDB();
+	virtual ~SensorDB();
+
+	/**
+	 *   bool AddNetwork(std::string recv_id):  Checks for a network and adds it if necessary.
+	 *   recv_id:  This is the 16-character (64-bit number) ID of the receiver's xbee,
+	 *   	used to identify the network.
+	 *
+	 *   This function asks the database to verify the receiver's network.  If the verification fails,
+	 *   the database adds the network to a list of "unclaimed" networks and the function returns false.
+	 *   If the verification succeeds, then the function returns true.
+	 *
+	 *   Returns:  true if the network already existed, and false if the network had to be created.
+	 *   Throws an empty exception if the argument is invalid.
+	 */
+	bool AddNetwork(std::string recv_id);
+};
+
+class SensorDBException {
+public:
+	SensorDBException(std::string whatWentWrong) {
+		this->whatWentWrong = whatWentWrong;
+	}
+
+	std::string what() {
+		return this->whatWentWrong;
+	}
+
+private:
+	std::string whatWentWrong;
+};
+#endif /* SENSORDB_H_ */

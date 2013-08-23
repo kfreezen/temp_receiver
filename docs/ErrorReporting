@@ -1,0 +1,5 @@
+Any robust system must have an error-reporting system that's built to 150% of spec.
+The receiver will notify the server anytime a sensor goes more than 90 seconds without reporting.
+The server will then put that sensor in a "lost" list and watch it for a user-specified amount
+of time before reporting it to the user.  The server will also report to the user if a user's network
+has gone a user-specified amount of time without any traffic to the server.
