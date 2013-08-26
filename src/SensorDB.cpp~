@@ -30,15 +30,25 @@ typedef struct {
 	int currentItr;
 } CURLRecvStruct;
 
-const char* __server = "localhost";
+const char* __server = "http://localhost";
 
 int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 	CURLRecvStruct* curlRecv = (CURLRecvStruct*) userPointer;
 
+	if(curlRecv == NULL) {
+		fprintf(stderr, "curlRecv == null.  ERROR\n");
+		return 0;
+	}
+	
+	#ifdef DEBUG
+	printf("processDataStart %p,%d,%d,%p\nbuffer=%p,length=%d,currentItr=%d\n", _buffer, size, nmemb, userPointer, curlRecv->buffer, curlRecv->length, curlRecv->currentItr);
+	#endif
+	
 	// First we see if the structure needs to be initialized.
 	if(curlRecv->buffer == NULL) {
 		curlRecv->buffer = new char[(size*nmemb>256)?size*nmemb+256:256];
-		curlRecv->length = 256;
+		curlRecv->length = (size*nmemb>256)?size*nmemb+256:256;
+		memset(curlRecv->buffer, 0, curlRecv->length);
 		curlRecv->currentItr = 0;
 	} else if(curlRecv->currentItr+size*nmemb > curlRecv->length) { // This transfer will go over the buffer's length, so increase buffer size.
 		char* oldBuffer = curlRecv->buffer;
@@ -48,21 +58,21 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 		}
 		curlRecv->buffer = new char[newLength];
 		curlRecv->length = newLength;
-
+		memset(curlRecv->buffer, 0, newLength);
+		
 		memcpy(curlRecv->buffer, oldBuffer, curlRecv->currentItr);
 		delete oldBuffer;
 	}
-
+	
 	// Now let us copy the new stuff in buffer.
 	memcpy(curlRecv->buffer+curlRecv->currentItr, _buffer, size*nmemb);
-
 	return size*nmemb;
 }
 
-bool SensorDB::AddNetwork(std::string recv_id) {
-	if(recv_id.length() != ID_LENGTH) {
-		fprintf(stderr, "recv_id.length()=%d, should equal 16.", recv_id.length());
-		throw SensorDBException("recv_id wrong length");
+bool SensorDB::AddNetwork(std::string net_id) {
+	if(net_id.length() != ID_LENGTH) {
+		fprintf(stderr, "net_id.length()=%d, should equal 16.", net_id.length());
+		throw SensorDBException("net_id wrong length");
 	}
 
 	curl_global_init(CURL_GLOBAL_ALL);
@@ -73,32 +83,163 @@ bool SensorDB::AddNetwork(std::string recv_id) {
 
 	string serverCallString = string(__server) + string("/networks.php?do=add");
 	char* cPOST = new char[128];
-	char* recv_id_encoded = curl_easy_escape(curl, recv_id.c_str(), recv_id.length());
-
-	sprintf(cPOST, "recv_id=%s", recv_id_encoded);
-	curl_free(recv_id_encoded);
-
+	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
+	
+	sprintf(cPOST, "net_id=%s", net_id_encoded);
+	curl_free(net_id_encoded);
+	
 	CURLRecvStruct data;
+	memset(&data, 0, sizeof(CURLRecvStruct));
+	
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
+	
+	bool retVal = false;
+	
 	if(curl_easy_perform(curl)) {
 		fprintf(stderr, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
 	} else {
 		// Now we parse the string.
-		printf("%s\n", data.buffer);
+		if(data.buffer==NULL) {
+			printf("ERROR:  data.buffer is null but shouldn't be.\n");
+		}
+		
 		if(!strcmp(data.buffer, "true")) {
-			return true;
-		} else if(!strcmp(data.buffer, "false")){
-			return false;
+			retVal = true;
+		} else if(!strcmp(data.buffer, "false")) {
+			retVal = false;
 		}
 	}
+	
+	delete cPOST;
+	
+	curl_easy_cleanup(curl);
+	
+	return retVal;
 }
 
-bool SensorDB::AddSensor(std::string recv_id, std::string sensor_id) {
-	printf("stub:  SensorDB::AddSensor(%s, %s);  TODO:  Finish.\n", recv_id.c_str(), sensor_id.c_str());
+bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
+	if(net_id.length() != ID_LENGTH) {
+		fprintf(stderr, "net_id.length()=%d, should equal %d.", net_id.length(), ID_LENGTH);
+		throw SensorDBException("net_id wrong length");
+	}
 	
-	// TODO:  Finish.
+	if(sensor_id.length() != ID_LENGTH) {
+		fprintf(stderr, "sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
+		throw SensorDBException("sensor_id wrong length");
+	}
+	
+	curl_global_init(CURL_GLOBAL_ALL);
+	CURL* curl = curl_easy_init();
+	if(curl == NULL) {
+		throw SensorDBException("curl==NULL");
+	}
+	
+	string serverCallString = string(__server) + string("/sensors.php?do=add");
+	char* cPOST = new char[128];
+	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
+	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
+	
+	sprintf(cPOST, "net_id=%s&sensor_id=%s", net_id_encoded, sensor_id_encoded);
+	curl_free(net_id_encoded);
+	curl_free(sensor_id_encoded);
+	
+	CURLRecvStruct data;
+	memset(&data, 0, sizeof(CURLRecvStruct));
+	
+	//printf("%s:%s\n", serverCallString.c_str(), cPOST);
+	
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
+	
+	bool retVal = false;
+	
+	if(curl_easy_perform(curl)) {
+		fprintf(stderr, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
+	} else {
+		// Now we parse the string.
+		if(data.buffer==NULL) {
+			printf("ERROR:  data.buffer is null but shouldn't be.\n");
+			return false;
+		}
+
+		if(!strcmp(data.buffer, "true")) {
+			retVal = true;
+		} else if(!strcmp(data.buffer, "false")) {
+			retVal = false;
+		}
+	}
+	
+	delete cPOST;
+	
+	curl_easy_cleanup(curl);
+	
+	return retVal;
+}
+
+bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_temp) {
+	printf("AddReportRun()\n");
+
+	bool retVal;
+	
+	if(sensor_id.length() != ID_LENGTH) {
+		fprintf(stderr, "sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
+		throw SensorDBException("sensor_id wrong length");
+	}
+	
+	curl_global_init(CURL_GLOBAL_ALL);
+	CURL* curl = curl_easy_init();
+	if(curl == NULL) {
+		throw SensorDBException("curl==NULL");
+	}
+	
+	string serverCallString = string(__server) + string("/report.php?do=add");
+	char* cPOST = new char[128];
+	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
+	
+	sprintf(cPOST, "timestamp=%lu&sensor_id=%s&probe0_temp=%f", timestamp, sensor_id_encoded, probe0_temp);
+	curl_free(sensor_id_encoded);
+	
+	CURLRecvStruct data;
+	memset(&data, 0, sizeof(CURLRecvStruct));
+	
+	//printf("%s:%s\n", serverCallString.c_str(), cPOST);
+	
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
+	
+	if(curl_easy_perform(curl)) {
+		fprintf(stderr, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
+	} else {
+		// Now we parse the string.
+		if(data.buffer==NULL) {
+			printf("ERROR:  data.buffer is null but shouldn't be.\n");
+			return false;
+		}
+		
+		printf("data:%s\n", data.buffer);
+		
+		if(!strcmp(data.buffer, "true")) {
+			retVal = true;
+		} else if(!strcmp(data.buffer, "false")) {
+			retVal = false;
+		} else {
+			retVal = false;
+		}
+	}
+	
+	delete cPOST;
+	
+	curl_easy_cleanup(curl);
+	
+	return retVal;
 }

@@ -5,6 +5,7 @@
 #include <ctime>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 #include "xbee.h"
 #include "globaldef.h"
@@ -16,15 +17,17 @@ using namespace std;
 
 typedef struct {
 	XBeeAddress addr;
-	int last_report;
+	int lastPacketTime;
 } Sensor;
 
 // I feel dirty using these globals, but alas, I'm too lazy to do anything else.
 
 map<XBeeAddress, Sensor*> sensorMap;
-XBeeAddress* receiver_addr;
+XBeeAddress receiver_addr;
 
 // END GLOBALS
+
+void AddSensor(XBeeAddress* addr);
 
 string GetXBeeID(XBeeAddress* addr) {
 	char* s = new char[17];
@@ -38,7 +41,21 @@ string GetXBeeID(XBeeAddress* addr) {
 	return _s;
 }
 
+void SensorUpdate(XBeeAddress* addr) {
+	Sensor* sensor = sensorMap[*addr];
+	if(sensor==NULL) {
+		AddSensor(addr);
+		sensor = sensorMap[*addr];
+	}
+	
+	sensor->lastPacketTime = time(NULL);
+}
+
 void AddSensor(XBeeAddress* addr) {
+	if(sensorMap[*addr]!=NULL) {
+		return;
+	}
+	
 	Sensor* sensor = new Sensor;
 	memcpy(&sensor->addr, addr, sizeof(XBeeAddress));
 
@@ -47,19 +64,31 @@ void AddSensor(XBeeAddress* addr) {
 	SensorDB db;
 
 	// Add the network if necessary.
-	db.AddNetwork(GetXBeeID(receiver_addr));
+	db.AddNetwork(GetXBeeID(&receiver_addr));
 	
-	db.AddSensor(GetXBeeID(receiver_addr), GetXBeeID(addr));
+	// Add the sensor to the network DB.
+	db.AddSensor(GetXBeeID(&receiver_addr), GetXBeeID(addr));
+
+	sensorMap[*addr] = sensor;
 }
 
+// There is a bug here.
 void* sensor_scanning_thread(void* p) {
 	while(1) {
 		map<XBeeAddress, Sensor*>::iterator itr;
 		for(itr = sensorMap.begin(); itr != sensorMap.end(); itr++) {
-			if(itr->second->last_report+90 < time(NULL)) {
+			if(itr->second == NULL) {
+				printf("Encountered NULL Sensor. %d\n", sensorMap.size());
+				continue;
+			}
+			
+			if(itr->second->lastPacketTime+90 < time(NULL) && itr->second->lastPacketTime) {
 				cout<< "Sensor has gone more than 90 seconds without replying.\n";
 			}
+			
 		}
+		
+		sleep(1);
 	}
 }
 
@@ -102,6 +131,8 @@ XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes address_7bytes) {
 	return address;
 }
 
+#define ZEROC_INKELVIN 273.15
+
 void HandlePacket(SerialPort* port, Frame* apiFrame) {
 	printf("HELP US ALL!\n");
 
@@ -115,18 +146,27 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
 
 			SendReceiverAddress(port, &xbee_addr);
-			AddSensor(&xbee_addr);
-
+			
+			if(sensorMap[xbee_addr] == NULL) {
+				AddSensor(&xbee_addr); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
+			}
+			
 			LogEntry entry;
 			entry.sensorId = xbee_addr;
 			entry.time = time(NULL);
 
 			Logger_AddEntry(&entry, REQUEST_RECEIVER);
+			SensorUpdate(&xbee_addr); // This will update the receiver struct and let the other thread know not to throw a fit.
 		} break;
 
 		case REPORT: {
 			//hexdump(packet, 32);
-			printf("thermistorResistance=%d\n", packet->report.thermistorResistance);
+			int resistance = packet->report.thermistorResistance;
+			int res25C = packet->report.thermistorResistance25C;
+			
+			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
+			
+			printf("probe0_temp=%f\n", probe0_temp);
 			LogEntry entry;
 			entry.resistance = packet->report.thermistorResistance;
 			XBeeAddress address;
@@ -138,13 +178,25 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
 
 			Logger_AddEntry(&entry, packet->header.command);
+			
+			if(sensorMap[address] == NULL) {
+				AddSensor(&address);
+			}
+			
+			SensorUpdate(&address);
+			
+			SensorDB db;
+			db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
 		} break;
 	}
 }
 
+extern unsigned swap_endian_32(unsigned n);
+
 int main() {
 	SerialPort* port;
 
+	// TODO:  Add code that searches for the Xbee on all the ports.
 	port = new SerialPort("/dev/ttyUSB1", 9600);
 
 	printf("We are go\n");
@@ -155,13 +207,14 @@ int main() {
 	// TODO:  Add sensor config loading code here.
 
 	// Get our Xbee ID.
-	unsigned char* buffer = new unsigned char[64];
-	XBAPI_Command(API_CMD_ATSL, (unsigned*)(buffer+4), 1, 0);
-	XBAPI_Command(API_CMD_ATSH, (unsigned*)(buffer), 1, 0);
-	*((unsigned*)buffer) = swap_endian_32(*((unsigned*)buffer));
-	*((unsigned*)(buffer+4)) = swap_endian_32(*((unsigned*)(buffer+4)));
+	unsigned* buffer = new unsigned[16];
+	XBAPI_Command(port, API_CMD_ATSL, &buffer[1], 1, 0);
+	XBAPI_Command(port, API_CMD_ATSH, &buffer[0], 1, 0);
+	buffer[0] = swap_endian_32(buffer[0]);
+	buffer[1] = swap_endian_32(buffer[1]);
 	
-	printf("thisReceiverID=%s\n", GetXBeeID((XBeeAddr*)buffer).c_str()); 
+	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
+	 
 	while(1) {
 		XBAPI_HandleFrame(port, 0);
 		//printf("while()\n");

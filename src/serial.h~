@@ -9,16 +9,10 @@
 #ifndef SERIAL_H
 #define SERIAL_H
 
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-
 #include <string>
 
 using std::string;
 
-using namespace boost;
-
-// FIXME:  Somewhere in this class, there is a bug.  A bug which causes characters to be skipped.
 class SerialPort {
 	public:
 		const static int DEFAULT_TIMEOUT_PER_CHAR = 10; // ms

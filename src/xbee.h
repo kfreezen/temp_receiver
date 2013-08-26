@@ -20,6 +20,8 @@ typedef struct __XBeeAddress {
     unsigned char addr[8];
 } XBeeAddress;
 
+bool operator<(const XBeeAddress& left, const XBeeAddress& right);
+
 struct __XBeeAddress_7Bytes {
 	unsigned char addr[7];
 } __attribute__((packed));
@@ -67,7 +69,7 @@ struct __ATCmdResponse {
 		byte command_bytes[2];
 	};
 	
-	byte command_status;
+	byte commandStatus;
 	
 	byte data_checksum[5]; // This is data with checksum since the data may be variable length
 } __attribute__((packed));
@@ -83,7 +85,7 @@ struct __ATCmdResponse_NoData {
 		byte command_bytes[2];
 	};
 	
-	byte command_status;
+	byte commandStatus;
 	
 	byte checksum;
 } __attribute__((packed));
@@ -154,6 +156,6 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int length, int expected);
 unsigned char checksum(void* addr, int length);
 unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char checksum);
 void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int length);
-int XBAPI_Command(unsigned short command, unsigned* data, int id, int data_valid);
+int XBAPI_Command(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid);
 
 #endif

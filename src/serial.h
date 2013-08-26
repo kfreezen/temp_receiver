@@ -13,6 +13,7 @@
 
 using std::string;
 
+// TODO:  Add baud rate changing code.
 class SerialPort {
 	public:
 		const static int DEFAULT_TIMEOUT_PER_CHAR = 10; // ms

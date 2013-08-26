@@ -8,10 +8,21 @@
 
 extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
+// This enables the map<...> to use the XBeeAddress as a key.
+bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
+	if(sizeof(unsigned long) == sizeof(XBeeAddress)) {
+		unsigned long left_id = *((unsigned long*)&left);
+		unsigned long right_id = *((unsigned long*)&right);
+		return (left_id < right_id);
+	} else {
+		printf("sizeof(unsigned long) != %d\n", sizeof(XBeeAddress));
+		return false;
+	}
+}
+
 word swap_endian_16(word n) {
 	return ((n & 0xFF) << 8) | n>>8;
 }
-
 
 unsigned char checksum(void* addr, int length) {
     unsigned char* address = (unsigned char*) addr;
@@ -155,6 +166,8 @@ int XBAPI_HandleFrame(SerialPort* port, int expected) {
 }
 
 int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int expected) {
+	int returnValue = 0;
+	
 	Frame apiFrame;
 	
 	memset(&apiFrame, 0, sizeof(Frame));
@@ -191,10 +204,10 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 			// First figure out the length of the data.
 			// length of data is difference between api frame's length field and the sizeof(AtCmdResponse_NoData)-4
 			int apiFrameLength = (apiFrame.rx.length[0] << 8) | apiFrame.rx.length[1];
-			int dataLength = apiFrameLength - sizeof(ATCmdResponse_NoData) - 4;
+			int dataLength = apiFrameLength - (sizeof(ATCmdResponse_NoData) - 4);
 			// Now we take the data and put it into an unsigned int.
 			if(dataLength>maxDataLength) {
-				printf("dataLength==%d, maxDataLength==%d\n", dataLength, maxDataLength);
+				printf("dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
 				return -1;
 			}
 			
@@ -212,7 +225,13 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 				case 4:
 					*((unsigned*)data) = swap_endian_32(*((unsigned*)apiFrame.atCmdResponse.data_checksum));
 					break;
+					
+				default:
+					hexdump(&apiFrame, sizeof(ATCmdResponse));
+					break;
 			}
+			
+			returnValue = apiFrame.atCmdResponse.commandStatus;
 			
 			// TODO:  Finish.
 		} break;
@@ -224,7 +243,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 	}
 	
 	printf("Returned\n");
-	return 0;
+	return returnValue;
 }
 
 int XBAPI_Command(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid) {
