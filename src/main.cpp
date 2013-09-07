@@ -6,6 +6,8 @@
 #include <cstring>
 #include <cstdio>
 #include <cmath>
+#include <vector>
+#include <unistd.h>
 
 #include "xbee.h"
 #include "globaldef.h"
@@ -72,7 +74,6 @@ void AddSensor(XBeeAddress* addr) {
 	sensorMap[*addr] = sensor;
 }
 
-// There is a bug here.
 void* sensor_scanning_thread(void* p) {
 	while(1) {
 		map<XBeeAddress, Sensor*>::iterator itr;
@@ -195,10 +196,14 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 extern unsigned swap_endian_32(unsigned n);
 
 int main() {
-	SerialPort* port;
+	SerialPort* port = NULL;
 
-	// TODO:  Add code that searches for the Xbee on all the ports.
-	port = new SerialPort("/dev/ttyUSB1", 9600);
+	try {
+		port = new SerialPort(9600);
+	} catch(SerialPortException e) {
+		printf("We did not find a valid port.\n");
+		return 1;
+	}
 
 	printf("We are go\n");
 

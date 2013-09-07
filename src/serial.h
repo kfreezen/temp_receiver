@@ -10,8 +10,22 @@
 #define SERIAL_H
 
 #include <string>
+#include <vector>
 
+using std::vector;
 using std::string;
+
+#define MAX_PORT_NUMBER 32
+vector<string> findValidPorts(string portBase);
+
+class SerialPortException {
+	public:
+		SerialPortException(string w) {
+			what = w;
+		}
+		
+		string what;
+};
 
 // TODO:  Add baud rate changing code.
 class SerialPort {
@@ -19,9 +33,12 @@ class SerialPort {
 		const static int DEFAULT_TIMEOUT_PER_CHAR = 10; // ms
 
 		SerialPort(string port, int baud);
+		SerialPort(int baud);
+		
+		int reinit();
+		
 		bool readByte(unsigned char* p_c);
 
-		// NOW WITH THE ALL-NEW, PAIN-IN-THE-NECK IMPLEMENTATION OF TIMEOUTS!!!
 		// Also returns the amount of bytes read.
 		int read(void* buffer, int len);
 		void write(const void* buffer, int len);
@@ -36,6 +53,8 @@ class SerialPort {
 			return charReadTimeout;
 		}
 	private:
+		void init(string port, int baud);
+		
 		FILE* portFile;
 
 		// OK, Just to sort things out:
@@ -46,6 +65,8 @@ class SerialPort {
 
 		unsigned int charReadTimeout;
 		struct timeval __timeout_struct;
+		
+		int mBaud;
 };
 
 #endif

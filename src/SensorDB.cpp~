@@ -183,7 +183,10 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	return retVal;
 }
 
-bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_temp) {
+#define TEMP_TYPE "temp"
+#define PROBE_NUM 0
+
+bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_value) {
 	printf("AddReportRun()\n");
 
 	bool retVal;
@@ -203,7 +206,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 	char* cPOST = new char[128];
 	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
 	
-	sprintf(cPOST, "timestamp=%lu&sensor_id=%s&probe0_temp=%f", timestamp, sensor_id_encoded, probe0_temp);
+	sprintf(cPOST, "timestamp=%lu&sensor_id=%s&probe0_value=%f&type=%d&probe_num=%d", timestamp, sensor_id_encoded, probe0_value, TEMP_TYPE, PROBE_NUM);
 	curl_free(sensor_id_encoded);
 	
 	CURLRecvStruct data;
@@ -226,14 +229,13 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 			return false;
 		}
 		
-		printf("data:%s\n", data.buffer);
-		
 		if(!strcmp(data.buffer, "true")) {
 			retVal = true;
 		} else if(!strcmp(data.buffer, "false")) {
 			retVal = false;
 		} else {
 			retVal = false;
+			printf("data:%s\n", data.buffer);
 		}
 	}
 	

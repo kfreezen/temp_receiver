@@ -8,6 +8,7 @@
 
 extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
+// This enables the map<...> to use the XBeeAddress as a key.
 bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
 	if(sizeof(unsigned long) == sizeof(XBeeAddress)) {
 		unsigned long left_id = *((unsigned long*)&left);

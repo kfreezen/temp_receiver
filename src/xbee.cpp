@@ -3,6 +3,7 @@
 
 #include "xbee.h"
 #include "serial.h"
+#include "global_def.h"
 
 #define START_DELIMITER 0x7e
 
@@ -10,12 +11,12 @@ extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
 // This enables the map<...> to use the XBeeAddress as a key.
 bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
-	if(sizeof(unsigned long) == sizeof(XBeeAddress)) {
-		unsigned long left_id = *((unsigned long*)&left);
-		unsigned long right_id = *((unsigned long*)&right);
+	if(sizeof(u64) == sizeof(XBeeAddress)) {
+		u64 left_id = *((u64*)&left);
+		u64 right_id = *((u64*)&right);
 		return (left_id < right_id);
 	} else {
-		printf("sizeof(unsigned long) != %d\n", sizeof(XBeeAddress));
+		printf("sizeof(u64) != %d\n", sizeof(XBeeAddress));
 		return false;
 	}
 }
