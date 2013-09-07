@@ -3,7 +3,7 @@
 
 #include "xbee.h"
 #include "serial.h"
-#include "global_def.h"
+#include "globaldef.h"
 
 #define START_DELIMITER 0x7e
 
