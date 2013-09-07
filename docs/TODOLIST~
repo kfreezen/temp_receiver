@@ -1,0 +1,5 @@
+TODO:  Add an API function which adds a report to the database. --
+TODO:  Add a report list for a sensor. --
+TODO:  paginate the report list.
+TODO:  Add a user settings form.
+TODO:  Add an API function for the receiver to obtain its owner's settings.

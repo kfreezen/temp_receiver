@@ -1,0 +1,19 @@
+	What happens when a sensor is at a point where it broadcasts its receiver request to two receivers at once?
+I don't know what happens, but it can't be very desirable.  Here is the protocol the sensor will use to determine
+which to use:
+
+Trying addresses by broadcast:
+1.  Sensor checks its EEPROM for a valid address.  If one is found go to section "Trying EEPROM address"
+2.  Sensor sends out "receiver request" packet.
+3.  Sensor waits for the first response.
+3a.  Sensor will time out after ~8 seconds and restart if no response is given.
+4.  The sensor stores the address of the first receiver to reply in EEPROM.
+
+Trying EEPROM address:
+
+1.  Sensor checks the "receiver request retries" variable.  If that variable is over 32,
+	go to section "Trying address by broadcast", step 2.
+	 
+2.  Sensor sends a receiver request to the address and increments a "receiver request retries" variable in EEPROM.
+3.  Sensor times out after ~1 second if no reply is heard.
+4.  If receiver at this address replies, the sensor clears the "receiver request retries" variable.
