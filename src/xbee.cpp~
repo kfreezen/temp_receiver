@@ -3,7 +3,7 @@
 
 #include "xbee.h"
 #include "serial.h"
-#include "global_def.h"
+#include "globaldef.h"
 
 #define START_DELIMITER 0x7e
 
@@ -16,7 +16,7 @@ bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
 		u64 right_id = *((u64*)&right);
 		return (left_id < right_id);
 	} else {
-		printf("sizeof(u64) != %d\n", sizeof(XBeeAddress));
+		fprintf(__stdout_log, "sizeof(u64) != %d\n", sizeof(XBeeAddress));
 		return false;
 	}
 }
@@ -70,7 +70,7 @@ void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int le
 
 	XBAPI_HandleFrame(port, API_TRANSMIT_STATUS);
 	
-	printf("XBAPI_Transmit()\n");
+	fprintf(__stdout_log, "XBAPI_Transmit()\n");
 }
 
 #define READ_FRAME_NUM_RETRIES 2000
@@ -86,7 +86,7 @@ bool XBAPI_ReadFrame(SerialPort* port, Frame* frame) {
 		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
 		if(c == START_DELIMITER && bytesRead>0) {
 #ifdef DEBUG
-			printf("Start delimiter found.\n");
+			fprintf(__stdout_log, "Start delimiter found.\n");
 #endif
 			frame->buffer[0] = c;
 			break;
@@ -102,7 +102,7 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		if(c == START_DELIMITER) {
 			// If c == START_DELIMITER we reset the length iterator.
 #ifdef DEBUG
-			printf("Another start delimiter found.\n");
+			fprintf(__stdout_log, "Another start delimiter found.\n");
 #endif
 			
 			goto reset_for_loop; // The other way is to set i to -1, but I like using overflows to 0 in a loop less than I like using goto's.
@@ -116,7 +116,7 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	int length = (frame->rx.length[0] << 8) | frame->rx.length[1];
 	
 #ifdef DEBUG
-	printf("length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.length[0], frame->rx.length[1]);
+	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.length[0], frame->rx.length[1]);
 #endif
 
 	// Read in the rest of the stuff.
@@ -126,21 +126,21 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	if(bytesRead < length) {
 		FILE* dbg_out = fopen("debug_log.txt", "a");
 		if(dbg_out==NULL) {
-			printf("dbg_out ERROR.\n");
+			fprintf(__stdout_log, "dbg_out ERROR.\n");
 		}
 
 		for(i=0; i<sizeof(Frame); i++) {
-			fprintf(dbg_out, "%x ", frame->buffer[i]);
-			printf("%x ", frame->buffer[i]);
+			fprintf(__stdout_logdbg_out, "%x ", frame->buffer[i]);
+			fprintf(__stdout_log, "%x ", frame->buffer[i]);
 		}
 
-		fprintf(dbg_out, "\n");
-		printf("\n");
+		fprintf(__stdout_logdbg_out, "\n");
+		fprintf(__stdout_log, "\n");
 
-		printf("Timed out.\n");
+		fprintf(__stdout_log, "Timed out.\n");
 		fclose(dbg_out);
 	} else {
-		printf("Done with XBAPI_ReadFrame().\n");
+		fprintf(__stdout_log, "Done with XBAPI_ReadFrame().\n");
 	}
 #endif
 
@@ -185,7 +185,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 				while(1) {
 					unsigned char c;
 					port->read(&c, 1);
-					printf("%x ", c);
+					fprintf(__stdout_log, "%x ", c);
 				}
 				break;
 		}
@@ -193,7 +193,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 	
 	//port->read(apiFrame.buffer+3, length);
 	
-	printf("Handling ... ");
+	fprintf(__stdout_log, "Handling ... ");
 	
 	switch(apiFrame.rx.frame_type) {
 		case API_RX_INDICATOR: {
@@ -208,7 +208,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 			int dataLength = apiFrameLength - (sizeof(ATCmdResponse_NoData) - 4);
 			// Now we take the data and put it into an unsigned int.
 			if(dataLength>maxDataLength) {
-				printf("dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
+				fprintf(__stdout_log, "dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
 				return -1;
 			}
 			
@@ -243,7 +243,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 		}
 	}
 	
-	printf("Returned\n");
+	fprintf(__stdout_log, "Returned\n");
 	return returnValue;
 }
 

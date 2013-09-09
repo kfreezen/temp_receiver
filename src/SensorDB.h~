@@ -48,7 +48,7 @@ public:
 	  *  bool AddReport(std::string sensor_id, time_t time, double probe0_temp):  Adds a report for a specified time.
 	  *
 	  */
-	 bool AddReport(std::string sensor_id, time_t time, double probe0_temp);
+	 bool AddReport(std::string sensor_id, time_t timestamp, double probe0_temp);
 };
 
 class SensorDBException {

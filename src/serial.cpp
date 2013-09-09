@@ -12,6 +12,8 @@
 
 using namespace std;
 
+extern FILE* __stdout_log;
+
 SerialPort::SerialPort(int baud) {
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
@@ -41,7 +43,7 @@ void SerialPort::init(string port, int baud) {
 }
 
 int SerialPort::reinit() {
-	printf("Reconnecting...\n");
+	fprintf(__stdout_log, "Reconnecting...\n");
 	
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);

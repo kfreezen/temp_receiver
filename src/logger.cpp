@@ -2,8 +2,11 @@
 
 #include <fstream>
 #include <string>
+#include <cstdio>
 
 using namespace std;
+
+extern FILE* __stdout_log;
 
 void Logger_Init(const char* server_address) {
 	/*
@@ -19,12 +22,12 @@ void Logger_AddEntry(LogEntry* entry, int command) {
 	
 	switch(command) {
 	case REQUEST_RECEIVER:  {
-		fprintf(out, "%u receiver request #%s\n", entry->time, /*GenerateXBeeAddressString(entry->sensorId),*/ ctime(&entry->time));
+		fprintf(__stdout_log, "%u receiver request #%s\n", entry->time, /*GenerateXBeeAddressString(entry->sensorId),*/ ctime(&entry->time));
 		break;
 	}
 	
 	case REPORT: {
-		fprintf(out, "%u %d #%s\n", entry->time, entry->resistance, ctime(&entry->time));
+		fprintf(__stdout_log, "%u %d #%s\n", entry->time, entry->resistance, ctime(&entry->time));
 		break;
 	}
 	

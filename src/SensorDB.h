@@ -10,6 +10,7 @@
 
 #include <string>
 
+void loadSettings(const char* file);
 
 class SensorDB {
 public:
