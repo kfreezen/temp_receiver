@@ -6,6 +6,8 @@
 #define REQUEST_RECEIVER 0x04
 
 #include "globaldef.h"
+#include "xbee.h"
+#include "serial.h"
 
 // This is an application-defined, arbitrary format.
 
@@ -57,5 +59,7 @@ typedef union {
 
     byte packet_data[32];
 } Packet;
+
+void HandlePacket(SerialPort* port, Frame* frame);
 
 #endif

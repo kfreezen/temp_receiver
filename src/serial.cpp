@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <vector>
 #include <unistd.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -86,7 +87,29 @@ bool SerialPort::readByte(unsigned char* p_c) {
 }
 
 int SerialPort::read(void* buffer, int len) {
-	fread(buffer, sizeof(char), len, portFile);
+	int size = len;
+	while(size > 0) {
+		size_t amount_read = fread(buffer, sizeof(char), size, portFile);
+		if(amount_read != len) {
+			// Now, we want to retry if it's
+			// just an interrupted call
+			if(ferror(SerialPort::portFile) && errno == EINTR) {
+				size -= amount_read;
+				buffer = ((unsigned char*)buffer) + amount_read;
+			} else {
+				// We have an unhandled error.
+				// Let's just display the info for now.
+				fprintf(__stdout_log, "Read error occurred.  amount_read=%d, len=%d, errno=%d\n", amount_read, len, errno);
+				break; // Since we can't continue.
+			}
+		} else {
+			size -= amount_read;
+		}
+
+		//fprintf(__stdout_log, "while size=%d", size);
+	}
+	return len-size;
+	//fprintf(__stdout_log, "return\n");
 }
 
 void SerialPort::write(void const* buffer, int len) {
@@ -109,5 +132,7 @@ vector<string> findValidPorts(string portBase) {
 		}
 	}
 	
+	delete buffer;
+
 	return retVector;
 }

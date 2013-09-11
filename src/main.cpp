@@ -79,12 +79,33 @@ void sigalrm_handler(int sig) {
 
 void sigterm_handler(int sig) {
 	fprintf(__stdout_log, "sigterm.  sig=%d, exiting...\n", sig);
+	exit(0);
+}
+
+void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
+	fprintf(__stdout_log, "SIGQUIT received from %d, ignoring...\n", siginfo->si_pid);
+}
+
+void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
+	fprintf(__stdout_log, "SIGINT received from %d, ignoring...\n", siginfo->si_pid);
 }
 
 void init_sig_handlers() {
 	signal(SIGHUP, sighup_handler);
-	signal(SIGINT, sigint_handler);
-	signal(SIGQUIT, sigquit_handler);
+	
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_sigaction = sigint_action_handler;
+	action.sa_flags = SA_SIGINFO;
+
+	sigaction(SIGINT, &action, NULL);
+	
+	//signal(SIGINT, sigint_handler);
+
+	//signal(SIGQUIT, sigquit_handler);
+	action.sa_sigaction = sigquit_action_handler;
+	sigaction(SIGQUIT, &action, NULL);
+
 	signal(SIGILL, sigill_handler);
 	signal(SIGABRT, sigabrt_handler);
 	signal(SIGFPE, sigfpe_handler);
@@ -209,71 +230,10 @@ XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes address_7bytes) {
 	return address;
 }
 
-#define ZEROC_INKELVIN 273.15
-
-void HandlePacket(SerialPort* port, Frame* apiFrame) {
-	//fprintf(__stdout_log, "HELP US ALL!\n");
-
-	Packet* packet = &apiFrame->rx.packet;
-	hexdump(apiFrame, sizeof(Frame));
-
-	switch(packet->header.command) {
-		case REQUEST_RECEIVER: {
-			fprintf(__stdout_log, "receiver request\n");
-			XBeeAddress xbee_addr;
-			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
-
-			SendReceiverAddress(port, &xbee_addr);
-			
-			if(sensorMap[xbee_addr] == NULL) {
-				AddSensor(&xbee_addr); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
-			}
-			
-			LogEntry entry;
-			entry.sensorId = xbee_addr;
-			entry.time = time(NULL);
-
-			Logger_AddEntry(&entry, REQUEST_RECEIVER);
-			SensorUpdate(&xbee_addr); // This will update the receiver struct and let the other thread know not to throw a fit.
-		} break;
-
-		case REPORT: {
-			//hexdump(packet, 32);
-			int resistance = packet->report.thermistorResistance;
-			int res25C = packet->report.thermistorResistance25C;
-			int probeBeta = packet->report.thermistorBeta;
-			
-			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
-			
-			fprintf(__stdout_log, "probe0_temp=%f\n", probe0_temp);
-			LogEntry entry;
-			entry.resistance = packet->report.thermistorResistance;
-			XBeeAddress address;
-
-			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
-			address = TransformTo8ByteAddress(apiFrame->rx.source_address);
-			entry.sensorId = address;
-			entry.time = time(NULL);
-			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
-
-			Logger_AddEntry(&entry, packet->header.command);
-			
-			if(sensorMap[address] == NULL) {
-				AddSensor(&address);
-			}
-			
-			SensorUpdate(&address);
-			
-			SensorDB db;
-			db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
-		} break;
-	}
-}
-
 extern unsigned swap_endian_32(unsigned n);
 
 int main() {
-	__stdout_log = fopen("stdout_log.log", "a+");
+	__stdout_log = fopen("stdout_log.log", "w+");
 	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
 
 	// Split this into a daemon.
@@ -346,6 +306,8 @@ int main() {
 	
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	
+	delete buffer;
+
 	fprintf(__stdout_log, "We are starting the loop\n");
 
 	while(1) {

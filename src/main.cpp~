@@ -70,7 +70,7 @@ void sigsegv_handler(int sig) {
 }
 
 void sigpipe_handler(int sig) {
-	fprinf(__stdout_log, "sigpipe.  sig=%d, exiting...\n", sig);
+	fprintf(__stdout_log, "sigpipe.  sig=%d, exiting...\n", sig);
 }
 
 void sigalrm_handler(int sig) {
@@ -79,12 +79,33 @@ void sigalrm_handler(int sig) {
 
 void sigterm_handler(int sig) {
 	fprintf(__stdout_log, "sigterm.  sig=%d, exiting...\n", sig);
+	exit(0);
+}
+
+void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
+	fprintf(__stdout_log, "SIGQUIT received from %d, ignoring...\n", siginfo->si_pid);
+}
+
+void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
+	fprintf(__stdout_log, "SIGINT received from %d, ignoring...\n", siginfo->si_pid);
 }
 
 void init_sig_handlers() {
 	signal(SIGHUP, sighup_handler);
-	signal(SIGINT, sigint_handler);
-	signal(SIGQUIT, sigquit_handler);
+	
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_sigaction = sigint_action_handler;
+	action.sa_flags = SA_SIGINFO;
+
+	sigaction(SIGINT, &action, NULL);
+	
+	//signal(SIGINT, sigint_handler);
+
+	//signal(SIGQUIT, sigquit_handler);
+	action.sa_sigaction = sigquit_action_handler;
+	sigaction(SIGQUIT, &action, NULL);
+
 	signal(SIGILL, sigill_handler);
 	signal(SIGABRT, sigabrt_handler);
 	signal(SIGFPE, sigfpe_handler);
@@ -216,7 +237,11 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 
 	Packet* packet = &apiFrame->rx.packet;
 	hexdump(apiFrame, sizeof(Frame));
-
+	// Do our CRC16 compare here.
+	unsigned short crc16 = packet->header.crc16;
+	packet->header.crc16 = 0;
+	// TODO:  Get CRC16 code from MPLAB X.
+	
 	switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
 			fprintf(__stdout_log, "receiver request\n");
@@ -273,7 +298,7 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 extern unsigned swap_endian_32(unsigned n);
 
 int main() {
-	__stdout_log = fopen("stdout_log.log", "a+");
+	__stdout_log = fopen("stdout_log.log", "w+");
 	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
 
 	// Split this into a daemon.
@@ -346,6 +371,8 @@ int main() {
 	
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	
+	delete buffer;
+
 	fprintf(__stdout_log, "We are starting the loop\n");
 
 	while(1) {
