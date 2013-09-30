@@ -135,7 +135,7 @@ typedef struct __TxStatusFrame TxStatusFrame;
 typedef struct __ATCmdResponse ATCmdResponse;
 typedef struct __ATCmdResponse_NoData ATCmdResponse_NoData;
 
-typedef union {
+typedef union __Frame {
     RxFrame rx;
     TxFrame tx;
     TxStatusFrame txStatus;

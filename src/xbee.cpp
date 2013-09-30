@@ -4,12 +4,13 @@
 #include "xbee.h"
 #include "serial.h"
 #include "globaldef.h"
+#include "packet_defs.h"
 
 #define START_DELIMITER 0x7e
 
 extern FILE* __stdout_log;
 
-extern void HandlePacket(SerialPort* port, Frame* apiFrame);
+//extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
 // This enables the map<...> to use the XBeeAddress as a key.
 bool operator<(const XBeeAddress& left, const XBeeAddress& right) {

@@ -19,63 +19,20 @@
 #include "serial.h"
 #include "logger.h"
 #include "SensorDB.h"
+#include "sensor.h"
 
 using namespace std;
 
 FILE* __stdout_log;
 char* log_buffer;
 
-typedef struct {
-	XBeeAddress addr;
-	int lastPacketTime;
-} Sensor;
-
 // I feel dirty using these globals, but alas, I'm too lazy to do anything else.
 
-map<XBeeAddress, Sensor*> sensorMap;
 XBeeAddress receiver_addr;
 
 // END GLOBALS
 
 // SIGNAL STUFF
-void basic_sig_handler(int);
-void sighup_handler(int);
-
-void sigint_handler(int sig) {
-	fprintf(__stdout_log, "sigint.  sig=%d, exiting...\n", sig);
-}
-
-void sigquit_handler(int sig) {
-	fprintf(__stdout_log, "sigquit.  sig=%d, exiting...\n", sig);
-}
-
-void sigill_handler(int sig) {
-	fprintf(__stdout_log, "sigill.  sig=%d, exiting...\n", sig);
-}
-
-void sigabrt_handler(int sig) {
-	fprintf(__stdout_log, "sigabrt.  sig=%d, exiting...\n", sig);
-}
-
-void sigfpe_handler(int sig) {
-	fprintf(__stdout_log, "sigfpe.  sig=%d, exiting...\n", sig);
-}
-
-void sigkill_handler(int sig) {
-	fprintf(__stdout_log, "sigkill.  sig=%d, exiting...\n", sig);
-}
-
-void sigsegv_handler(int sig) {
-	fprintf(__stdout_log, "sigsegv.  sig=%d, exiting...\n", sig);
-}
-
-void sigpipe_handler(int sig) {
-	fprintf(__stdout_log, "sigpipe.  sig=%d, exiting...\n", sig);
-}
-
-void sigalrm_handler(int sig) {
-	fprintf(__stdout_log, "sigalrm.  sig=%d, exiting...\n", sig);
-}
 
 void sigterm_handler(int sig) {
 	fprintf(__stdout_log, "sigterm.  sig=%d, exiting...\n", sig);
@@ -91,8 +48,6 @@ void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
 }
 
 void init_sig_handlers() {
-	signal(SIGHUP, sighup_handler);
-	
 	struct sigaction action;
 	memset(&action, 0, sizeof(action));
 	action.sa_sigaction = sigint_action_handler;
@@ -100,34 +55,14 @@ void init_sig_handlers() {
 
 	sigaction(SIGINT, &action, NULL);
 	
-	//signal(SIGINT, sigint_handler);
-
-	//signal(SIGQUIT, sigquit_handler);
 	action.sa_sigaction = sigquit_action_handler;
 	sigaction(SIGQUIT, &action, NULL);
 
-	signal(SIGILL, sigill_handler);
-	signal(SIGABRT, sigabrt_handler);
-	signal(SIGFPE, sigfpe_handler);
-	signal(SIGKILL, sigkill_handler);
-	signal(SIGSEGV, sigsegv_handler);
-	signal(SIGPIPE, sigpipe_handler);
-	signal(SIGALRM, sigalrm_handler);
 	signal(SIGTERM, sigterm_handler);
 
 }
 
-void sighup_handler(int sig) {
-	fprintf(__stdout_log, "sighup.  sig=%d, exiting...\n");
-}
-
-void basic_sig_handler(int sig) {
-	fprintf(__stdout_log, "sig=%d, exiting...");
-	exit(1);
-}
 // END SIGNAL STUFF
-
-void AddSensor(XBeeAddress* addr);
 
 string GetXBeeID(XBeeAddress* addr) {
 	char* s = new char[17];
@@ -141,40 +76,10 @@ string GetXBeeID(XBeeAddress* addr) {
 	return _s;
 }
 
-void SensorUpdate(XBeeAddress* addr) {
-	Sensor* sensor = sensorMap[*addr];
-	if(sensor==NULL) {
-		AddSensor(addr);
-		sensor = sensorMap[*addr];
-	}
-	
-	sensor->lastPacketTime = time(NULL);
-}
-
-void AddSensor(XBeeAddress* addr) {
-	if(sensorMap[*addr]!=NULL) {
-		return;
-	}
-	
-	Sensor* sensor = new Sensor;
-	memcpy(&sensor->addr, addr, sizeof(XBeeAddress));
-
-	fprintf(__stdout_log, "id=%s\n", GetXBeeID(addr).c_str());
-	
-	SensorDB db;
-
-	// Add the network if necessary.
-	db.AddNetwork(GetXBeeID(&receiver_addr));
-	
-	// Add the sensor to the network DB.
-	db.AddSensor(GetXBeeID(&receiver_addr), GetXBeeID(addr));
-
-	sensorMap[*addr] = sensor;
-}
-
 void* sensor_scanning_thread(void* p) {
+	SensorMap sensorMap = GetSensorMap();
 	while(1) {
-		map<XBeeAddress, Sensor*>::iterator itr;
+		SensorMap::iterator itr;
 		for(itr = sensorMap.begin(); itr != sensorMap.end(); itr++) {
 			if(itr->second == NULL) {
 				fprintf(__stdout_log, "Encountered NULL Sensor. %d\n", sensorMap.size());
@@ -189,25 +94,6 @@ void* sensor_scanning_thread(void* p) {
 		
 		sleep(5);
 	}
-}
-
-void SendPacket(SerialPort* port, XBeeAddress* address, Packet* packet) {
-	XBAPI_Transmit(port, address, packet, sizeof(Packet));
-}
-
-void SendReceiverAddress(SerialPort* port, XBeeAddress* dest) {
-	for(int i=0; i<sizeof(XBeeAddress); i++) {
-		fprintf(__stdout_log, "%x%c", dest->addr[i], (i==sizeof(XBeeAddress)-1) ? '\n' : ' ');
-	}
-
-	Packet packet_buffer;
-    packet_buffer.header.command = REQUEST_RECEIVER;
-    packet_buffer.header.magic = 0xAA55;
-    packet_buffer.header.revision = PROGRAM_REVISION;
-    //packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(Packet));
-    // TODO:  Implement CRC16 generation.
-
-    SendPacket(port, dest, &packet_buffer);
 }
 
 void hexdump(void* ptr, int len) {

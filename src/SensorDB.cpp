@@ -148,6 +148,10 @@ bool SensorDB::AddNetwork(std::string net_id) {
 	
 	curl_easy_cleanup(curl);
 	
+	if(data.buffer != NULL) {
+		delete data.buffer;
+	}
+
 	return retVal;
 }
 
@@ -215,7 +219,9 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	delete cPOST;
 	
 	// Clean up the receive structure
-	delete data.buffer;
+	if(data.buffer != NULL) {
+		delete data.buffer;
+	}
 
 	curl_easy_cleanup(curl);
 	
@@ -287,9 +293,11 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 	delete cPOST;
 	
 	// Clear receive structure
-	delete data.buffer; // This delete and the other data.buffer 
-	// delete will take care of one memory leak.
-	
+	if(data.buffer != NULL) {
+		delete data.buffer; // This delete and the other data.buffer 
+		// delete will take care of one memory leak.
+	}
+
 	curl_easy_cleanup(curl);
 	
 	return retVal;

@@ -6,7 +6,6 @@
 #define REQUEST_RECEIVER 0x04
 
 #include "globaldef.h"
-#include "xbee.h"
 #include "serial.h"
 
 // This is an application-defined, arbitrary format.
@@ -22,7 +21,7 @@ struct __PacketHeader {
 typedef struct __PacketHeader PacketHeader;
 
 // This union allows me to select between using a byte buffer and a myriad of structures for my packets
-typedef union {
+typedef union __Packet {
 
 	struct {
         PacketHeader header;
@@ -60,6 +59,5 @@ typedef union {
     byte packet_data[32];
 } Packet;
 
-void HandlePacket(SerialPort* port, Frame* frame);
 
 #endif
