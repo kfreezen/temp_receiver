@@ -43,10 +43,10 @@ class SerialPort {
 		int read(void* buffer, int len);
 		void write(const void* buffer, int len);
 		
-		// Sets the time (in ms) that this object waits between chars. (Default is 1000/baud*25)
+		// Sets the time (in ns) that this object waits between chars. (Default is 1000/baud*25)
 		void setCharTmo(unsigned int tmo) {
 			charReadTimeout = (tmo<0) ? 0 : tmo;
-			__timeout_struct.tv_usec = charReadTimeout*1000;
+			__timeout_struct.tv_nsec = charReadTimeout;
 		}
 
 		unsigned int getCharTmo() {
@@ -55,7 +55,8 @@ class SerialPort {
 	private:
 		void init(string port, int baud);
 		
-		FILE* portFile;
+		//FILE* portFile;
+		int portFileNo;
 
 		// OK, Just to sort things out:
 		// true means that the read timed out.
@@ -63,8 +64,9 @@ class SerialPort {
 		bool readError;
 		int numBytesRead;
 
+		// Number of nanoseconds.
 		unsigned int charReadTimeout;
-		struct timeval __timeout_struct;
+		struct timespec __timeout_struct;
 		
 		int mBaud;
 };

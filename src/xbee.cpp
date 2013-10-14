@@ -117,14 +117,14 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		}
 	}
 	int length = (frame->rx.length[0] << 8) | frame->rx.length[1];
-	
+	length += 1; // This is so that we include the checksum as well.
+
 #ifdef DEBUG
 	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.length[0], frame->rx.length[1]);
 #endif
 
 	// Read in the rest of the stuff.
 	int bytesRead = port->read(frame->buffer+3, (length>sizeof(Frame)-3)?sizeof(Frame)-3:length); // That ()?: thingy is to prevent buffer overflows.
-
 #ifdef DEBUG
 	if(bytesRead < length) {
 		FILE* dbg_out = fopen("debug_log.txt", "a");

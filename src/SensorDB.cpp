@@ -15,6 +15,8 @@
 #include <sstream>
 #include <map>
 
+#define RECV_AUTH "QmykRDNrEMfSJuLTSgzTWZyu"
+
 using namespace std;
 
 extern FILE* __stdout_log;
@@ -135,6 +137,7 @@ bool SensorDB::AddNetwork(std::string net_id) {
 		// Now we parse the string.
 		if(data.buffer==NULL) {
 			fprintf(__stdout_log, "ERROR:  data.buffer is null but shouldn't be.\n");
+			retVal = false;
 		}
 		
 		if(!strcmp(data.buffer, "true")) {
@@ -183,14 +186,14 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
 	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
 	
-	sprintf(cPOST, "net_id=%s&sensor_id=%s", net_id_encoded, sensor_id_encoded);
+	sprintf(cPOST, "net_id=%s&sensor_id=%s&recv_auth=%s", net_id_encoded, sensor_id_encoded, RECV_AUTH);
 	curl_free(net_id_encoded);
 	curl_free(sensor_id_encoded);
 	
 	CURLRecvStruct data;
 	memset(&data, 0, sizeof(CURLRecvStruct));
 	
-	//fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
+	fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
 	
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
