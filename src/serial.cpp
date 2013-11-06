@@ -40,6 +40,8 @@ SerialPort::SerialPort(string port, int baud) {
 // this function defaults to 9600 baud.
 
 void SerialPort::init(string port, int baud) {
+	fprintf(__stdout_log, "SerialPort::init\n");
+	
 	SerialPort::portFileNo = open(port.c_str(), O_RDWR | O_NONBLOCK);
 	
 	// Here we want to set the attributes of our port as needed.

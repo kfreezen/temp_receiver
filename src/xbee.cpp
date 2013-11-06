@@ -8,6 +8,8 @@
 
 #define START_DELIMITER 0x7e
 
+//#define XBEE_DEBUG
+
 extern FILE* __stdout_log;
 
 //extern void HandlePacket(SerialPort* port, Frame* apiFrame);
@@ -73,7 +75,9 @@ void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int le
 
 	XBAPI_HandleFrame(port, API_TRANSMIT_STATUS);
 	
+	#ifdef XBEE_DEBUG
 	fprintf(__stdout_log, "XBAPI_Transmit()\n");
+	#endif
 }
 
 #define READ_FRAME_NUM_RETRIES 2000
@@ -88,7 +92,7 @@ bool XBAPI_ReadFrame(SerialPort* port, Frame* frame) {
 		int bytesRead = port->read(&c, 1);
 		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
 		if(c == START_DELIMITER && bytesRead>0) {
-#ifdef DEBUG
+#ifdef XBEE_DEBUG
 			fprintf(__stdout_log, "Start delimiter found.\n");
 #endif
 			frame->buffer[0] = c;
@@ -104,7 +108,7 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		int bytesRead = port->read(&c, 1);
 		if(c == START_DELIMITER) {
 			// If c == START_DELIMITER we reset the length iterator.
-#ifdef DEBUG
+#ifdef XBEE_DEBUG
 			fprintf(__stdout_log, "Another start delimiter found.\n");
 #endif
 			
@@ -119,25 +123,26 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	int length = (frame->rx.length[0] << 8) | frame->rx.length[1];
 	length += 1; // This is so that we include the checksum as well.
 
-#ifdef DEBUG
+#ifdef XBEE_DEBUG
 	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.length[0], frame->rx.length[1]);
 #endif
 
 	// Read in the rest of the stuff.
 	int bytesRead = port->read(frame->buffer+3, (length>sizeof(Frame)-3)?sizeof(Frame)-3:length); // That ()?: thingy is to prevent buffer overflows.
-#ifdef DEBUG
+
+#ifdef XBEE_DEBUG
 	if(bytesRead < length) {
 		FILE* dbg_out = fopen("debug_log.txt", "a");
 		if(dbg_out==NULL) {
 			fprintf(__stdout_log, "dbg_out ERROR.\n");
 		}
-
+		
 		for(i=0; i<sizeof(Frame); i++) {
-			fprintf(__stdout_logdbg_out, "%x ", frame->buffer[i]);
+			fprintf(dbg_out, "%x ", frame->buffer[i]);
 			fprintf(__stdout_log, "%x ", frame->buffer[i]);
 		}
 
-		fprintf(__stdout_logdbg_out, "\n");
+		fprintf(dbg_out, "\n");
 		fprintf(__stdout_log, "\n");
 
 		fprintf(__stdout_log, "Timed out.\n");
@@ -150,8 +155,9 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	return !(bytesRead < length);
 }
 
-
+#ifdef XBEE_DEBUG
 extern void hexdump(void* ptr, int len);
+#endif
 
 u32 swap_endian_32(u32 n) {
     unsigned long r = 0;
@@ -188,7 +194,9 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 				while(1) {
 					unsigned char c;
 					port->read(&c, 1);
+					
 					fprintf(__stdout_log, "%x ", c);
+					
 				}
 				break;
 		}
@@ -196,7 +204,9 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 	
 	//port->read(apiFrame.buffer+3, length);
 	
+	#ifdef XBEE_DEBUG
 	fprintf(__stdout_log, "Handling ... ");
+	#endif
 	
 	switch(apiFrame.rx.frame_type) {
 		case API_RX_INDICATOR: {
@@ -231,7 +241,10 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 					break;
 					
 				default:
+					#ifdef XBEE_DEBUG
 					hexdump(&apiFrame, sizeof(ATCmdResponse));
+					#endif
+					
 					break;
 			}
 			
@@ -241,12 +254,17 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 		} break;
 		
 		default: {
+			#ifdef XBEE_DEBUG
 			hexdump(&apiFrame, sizeof(apiFrame));
+			#endif
 			break;
 		}
 	}
 	
+	#ifdef XBEE_DEBUG
 	fprintf(__stdout_log, "Returned\n");
+	#endif
+	
 	return returnValue;
 }
 

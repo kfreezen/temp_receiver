@@ -159,6 +159,10 @@ bool SensorDB::AddNetwork(std::string net_id) {
 }
 
 bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
+	#ifdef DEBUG
+	fprintf(__stdout_log, "AddReportRun()\n");
+	#endif
+	
 	if(net_id.length() != ID_LENGTH) {
 		fprintf(__stdout_log, "net_id.length()=%d, should equal %d.", net_id.length(), ID_LENGTH);
 		throw SensorDBException("net_id wrong length");
@@ -235,7 +239,6 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 #define PROBE_NUM 0
 
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_value) {
-	fprintf(__stdout_log, "AddReportRun()\n");
 
 	bool retVal;
 	
