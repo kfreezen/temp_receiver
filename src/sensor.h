@@ -4,14 +4,23 @@
 #include "xbee.h"
 #include <map>
 
+#include "globaldef.h"
+
 using namespace std;
 
+typedef union SensorId {
+	byte id[8];
+	#ifdef __GNUC__
+	uint64 uId;
+	#endif
+} SensorId;
+
 typedef struct {
-	XBeeAddress addr;
+	SensorId addr;
 	int lastPacketTime;
 } Sensor;
 
-typedef map<XBeeAddress, Sensor*> SensorMap;
+typedef map<SensorId, Sensor*> SensorMap;
 
 void AddSensor(XBeeAddress* addr);
 

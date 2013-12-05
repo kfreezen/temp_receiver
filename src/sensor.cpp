@@ -14,10 +14,11 @@ extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
 
 using namespace std;
 
-map<XBeeAddress, Sensor*> sensorMap;
+map<XBeeAddress, SensorId> XBeeAddressToSensorIdMap;
+map<SensorId, Sensor*> sensorMap;
 
-extern string GetXBeeID(XBeeAddress* addr);
-void SensorUpdate(XBeeAddress* addr) {
+extern string GetXBeeID(SensorId* addr);
+void SensorUpdate(SensorId* addr) {
 	Sensor* sensor = sensorMap[*addr];
 	if(sensor==NULL) {
 		AddSensor(addr);
@@ -46,6 +47,10 @@ void AddSensor(XBeeAddress* addr) {
 	db.AddSensor(GetXBeeID(&receiver_addr), GetXBeeID(addr));
 
 	sensorMap[*addr] = sensor;
+}
+
+map<XBeeAddress, SensorId> GetXBeeAddressToSensorIdMap() {
+	return XBeeAddressToSensorIdMap;
 }
 
 map<XBeeAddress, Sensor*> GetSensorMap() {
