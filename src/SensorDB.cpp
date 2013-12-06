@@ -97,7 +97,11 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 	}
 	
 	// Now let us copy the new stuff in buffer.
-	memcpy(curlRecv->buffer+curlRecv->currentItr, _buffer, size*nmemb);
+	memcpy(curlRecv->buffer + curlRecv->currentItr, _buffer, size*nmemb);
+
+	// This was added 12/5/13, I'm surpised there wasn't ever a visible bug here.
+	curlRecv->currentItr += size*nmemb;
+
 	return size*nmemb;
 }
 

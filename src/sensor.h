@@ -8,24 +8,19 @@
 
 using namespace std;
 
-typedef union SensorId {
-	byte id[8];
-	#ifdef __GNUC__
-	uint64 uId;
-	#endif
-} SensorId;
-
 typedef struct {
-	SensorId addr;
+	SensorId id;
 	int lastPacketTime;
 } Sensor;
 
 typedef map<SensorId, Sensor*> SensorMap;
 
-void AddSensor(XBeeAddress* addr);
+void AddSensor(SensorId* addr);
 
 SensorMap GetSensorMap();
 
-void SensorUpdate(XBeeAddress* addr);
+void SensorUpdate(SensorId* addr);
+
+bool operator<(const SensorId& left, const SensorId& right);
 
 #endif

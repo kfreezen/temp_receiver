@@ -64,8 +64,20 @@ void init_sig_handlers() {
 
 // END SIGNAL STUFF
 
-string GetXBeeID(XBeeAddress* addr) {
+string GetID(SensorId* id) {
 	char* s = new char[17];
+	int i;
+	for(i=0; i<8; i++) {
+		sprintf(&s[i<<1], "%02x", id->id[i]);
+	}
+
+	string _s = string(s);
+	delete s;
+	return _s;
+}
+
+string GetXBeeID(XBeeAddress* addr) {
+	/*char* s = new char[17];
 	int i;
 	for(i=0; i<8; i++) {
 		sprintf(&s[i<<1], "%02x", addr->addr[i]);
@@ -73,7 +85,8 @@ string GetXBeeID(XBeeAddress* addr) {
 
 	string _s = string(s);
 	delete s;
-	return _s;
+	return _s;*/
+	return GetID((SensorId*) addr);
 }
 
 void* sensor_scanning_thread(void* p) {

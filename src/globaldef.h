@@ -1,9 +1,6 @@
 #ifndef GLOBALDEF_H
 #define GLOBALDEF_H
 
-#ifndef GLOBALDEF_H
-#define	GLOBALDEF_H
-
 #define TRUE 1
 #define FALSE 0
 
@@ -36,7 +33,7 @@ typedef long int32;
 #else
 #define PACKED_STRUCT
 #endif
-#endif	/* GLOBALDEF_H */
+//#endif	/* GLOBALDEF_H */
 
 #define PROGRAM_REVISION 0
 

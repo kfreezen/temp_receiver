@@ -17,26 +17,27 @@ using namespace std;
 map<XBeeAddress, SensorId> XBeeAddressToSensorIdMap;
 map<SensorId, Sensor*> sensorMap;
 
-extern string GetXBeeID(SensorId* addr);
-void SensorUpdate(SensorId* addr) {
-	Sensor* sensor = sensorMap[*addr];
+extern string GetXBeeID(XBeeAddress* addr);
+extern string GetID(SensorId* id);
+void SensorUpdate(SensorId* id) {
+	Sensor* sensor = sensorMap[*id];
 	if(sensor==NULL) {
-		AddSensor(addr);
-		sensor = sensorMap[*addr];
+		AddSensor(id);
+		sensor = sensorMap[*id];
 	}
 
 	sensor->lastPacketTime = time(NULL);
 }
 
-void AddSensor(XBeeAddress* addr) {
-	if(sensorMap[*addr]!=NULL) {
+void AddSensor(SensorId* id) {
+	if(sensorMap[*id]!=NULL) {
 		return;
 	}
 	
 	Sensor* sensor = new Sensor;
-	memcpy(&sensor->addr, addr, sizeof(XBeeAddress));
+	memcpy(&sensor->id, id, sizeof(SensorId));
 
-	fprintf(__stdout_log, "id=%s\n", GetXBeeID(addr).c_str());
+	//fprintf(__stdout_log, "id=%s\n", GetXBeeID(addr).c_str());
 	
 	SensorDB db;
 
@@ -44,15 +45,15 @@ void AddSensor(XBeeAddress* addr) {
 	db.AddNetwork(GetXBeeID(&receiver_addr));
 	
 	// Add the sensor to the network DB.
-	db.AddSensor(GetXBeeID(&receiver_addr), GetXBeeID(addr));
+	db.AddSensor(GetXBeeID(&receiver_addr), GetID(id));
 
-	sensorMap[*addr] = sensor;
+	sensorMap[*id] = sensor;
 }
 
 map<XBeeAddress, SensorId> GetXBeeAddressToSensorIdMap() {
 	return XBeeAddressToSensorIdMap;
 }
 
-map<XBeeAddress, Sensor*> GetSensorMap() {
+map<SensorId, Sensor*> GetSensorMap() {
 	return sensorMap;
 }

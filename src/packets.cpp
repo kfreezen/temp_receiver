@@ -25,42 +25,53 @@ extern void hexdump(void*, int);
 extern XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes);
 extern string GetXBeeID(XBeeAddress*);
 
-// Simple variable argument list, callbacks are cast to this.
-typedef void* (*CallbackFunc)(...);
+void HandlePacketRev0(SerialPort* port, Frame* apiFrame);
+void HandlePacketRev1(SerialPort* port, Frame* apiFrame);
 
-// Callback type for HandlePacket.  Gets cast to CallbackFunc.
-typedef void* (*HandlePacketCb)(Packet* packet);
+/**
+	HandlePacket callbacks do not need to do any verification, that is already done.
+	The only thing they need to do is parse the packet and reply if needed.
+**/
+typedef void (*HandlePacketCallback)(SerialPort*, Frame*);
 
 typedef struct {
-	CallbackFunc cb;
-	int minRevision;
-	int maxRevision;
-} Callback;
+	HandlePacketCallback handlePacketCallback;
+	int minRev;
+	int maxRev;
+} HandlePacketCallbackStruct;
 
-void* REQUEST_RECEIVER_Handler_Rev0_to_Rev1(Packet* packet);
-void* TEMP_REPORT_Handler_Rev0(Packet* packet);
-void* TEMP_REPORT_Handler_Rev1(Packet* packet);
-
-Callback handlePacketCallbacks[] = {
-	{REQUEST_RECEIVER_Handler_Rev0_to_Rev1, 0, 1},
-	{TEMP_REPORT_Handler_Rev0, 0, 0},
-	{TEMP_REPORT_Handler_Rev1, 1, 1}
+HandlePacketCallbackStruct handlePacketCallbacks[] = {
+	{HandlePacketRev0, 0, 0},
+	{HandlePacketRev1, 1, 1}
 };
 
 int handlePacketCallbacksLength = sizeof(handlePacketCallbacks) / sizeof(*handlePacketCallbacks);
 
-void SendPacket(SerialPort* port, XBeeAddress* address, Packet* packet) {
-	XBAPI_Transmit(port, address, packet, sizeof(Packet));
+void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* packet) {
+	int size;
+	switch(revision) {
+		case REVISION_0:
+			size = sizeof(PacketRev0);
+		break;
+
+		case REVISION_1:
+			size = sizeof(PacketRev1);
+		break;
+	}
+
+	XBAPI_Transmit(port, address, packet, size);
 }
 
 void SendReceiverAddress(SerialPort* port, XBeeAddress* dest) {
+	fprintf(__stdout_log, "Warning:  SendReceiverAddress is deprecated.\n");
+
 	#ifdef PACKETS_DEBUG
 	for(int i=0; i<sizeof(XBeeAddress); i++) {
 		fprintf(__stdout_log, "%x%c", dest->addr[i], (i==sizeof(XBeeAddress)-1) ? '\n' : ' ');
 	}
 	#endif
 	
-	Packet packet_buffer;
+	PacketRev0 packet_buffer;
 	memset(&packet_buffer, 0, sizeof(Packet));
 
 	packet_buffer.header.command = REQUEST_RECEIVER;
@@ -68,7 +79,7 @@ void SendReceiverAddress(SerialPort* port, XBeeAddress* dest) {
 	packet_buffer.header.revision = PROGRAM_REVISION;
 	packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(Packet));
 
-	SendPacket(port, dest, &packet_buffer);
+	SendPacket(port, REVISION_0, dest, &packet_buffer);
 }
 
 void HandlePacket(SerialPort* port, Frame* apiFrame) {
@@ -94,8 +105,9 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 	int i;
 	for(i=0; i < handlePacketCallbacksLength; i++) {
 		Callback* cb = &handlePacketCallbacks[i];
-		if(packet->header.revision >= cb->minRevision && packet->header.revision <=  cb->maxRevision) {
-			cb->cb(packet);
+		// This finds a HandlePacket for a specific revision.
+		if(packet->header.revision >= cb->minRev && packet->header.revision <= cb->maxRev) {
+			cb->handlePacketCallback(apiFrame);
 		}
 	}
 
@@ -167,77 +179,118 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 	}*/
 }
 
-void* REQUEST_RECEIVER_Handler_Rev0_to_Rev1(Frame* frame, Packet* packet) {
-	if(packet->header.command != REQUEST_RECEIVER) {
-		return (void*) 1;
-	}
+void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
+	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 
-	SensorId sensorId = 0;
-	if(packet->requestReceiver.rev1.sensorId == 0xFFFFFFFFFFFFFFFF) {
-		// Assign the sensor a new ID.
-	} else {
-		sensorId = packet->requestReceiver.rev1.sensorId;
-	}
+	switch(packet->header.command) {
+		case REQUEST_RECEIVER: {
+			XBeeAddress xbee_addr;
+			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
 
-	XBeeAddress xbeeAddr;
-	xbeeAddr = packet->requestReceiver.rev1.address;
+			SensorId sensorId = packet->header.sensorId;
+			if(sensorId.uId == 0xFFFFFFFFFFFFFFFF) {
+				// Get a new sensor ID.
+				SimpleCurl* curl = new SimpleCurl();
+				string url = Settings::get("server") + string("/api/getid");
+				CURLBuffer* buf = curl->get(url, "");
+				sensorId.uId = strtoul(buf->buffer, NULL, 16);
+				delete buf;
+				delete curl;
+			}
 
-	if(GetSensorMap()[sensorId] == NULL) {
-		AddSensor(&sensorId);
-	}
+			packet->receiverAck.sensorId = sensorId;
+			PacketRev1* reply = new PacketRev1;
+			memset(reply, 0, sizeof(PacketRev1));
+			reply->header.flags = 0;
 
-	#ifdef PACKET_DEBUG
-	LogEntry entry;
-	entry.sensorId = sensorId;
-	entry.time = time(NULL);
+			// We set it to the packet header's revision, in case we ever support multiple
+			// revisions with one callback.
+			reply->header.revision = packet->header.revision;
+			reply->header.command = RECEIVER_ACK;
+			reply->header.sensorId = sensorId;
+			SendPacket(port, REVISION_1, xbee_addr, packet);
 
-	Logger_AddEntry(&entry, REQUEST_RECEIVER);
-	#endif
+			if(GetSensorMap()[sensorId] == NULL) {
+				AddSensor(&sensorId);
+			}
 
-	SensorUpdate(&sensorId);
-}
 
-void* TEMP_REPORT_Handler_Rev0(Frame* frame, Packet* packet) {
-	int resistance = packet->report.rev0.probeResistance;
-	int res25C = packet->report.rev0.thermistorResistance25C;
-	int probeBeta = packet->report.rev0.thermistorBeta;
-	
-	double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
-	
-	#ifdef PACKET_DEBUG_VERBOSE0
-	fprintf(__stdout_log, "probe0_temp=%f\n", probe0_temp);
-	#endif
-
-	// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
-	XBeeAddress address;
-	address = TransformTo8ByteAddress(apiFrame->rx.source_address);
-
-	#ifdef PACKET_DEBUG_VERBOSE0
-	LogEntry entry;
-	entry.resistance = packet->report.thermistorResistance;
-
-	entry.sensorId = address;
-	entry.time = time(NULL);
-	entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
-
-	Logger_AddEntry(&entry, packet->header.command);
-	#endif
-
-	SensorId* id;
-	XBeeAddress addr = TransformTo8ByteAddress(apiFrame->rx.source_address);
-	id = GetXBeeIDToSensorIdMap()[addr];
-
-	if(id == NULL) {
-		// Something's wrong here.
-	} else {
-		if(GetSensorMap()[address] == NULL) {
-			AddSensor(id);
 		}
 	}
+}
 
-	SensorUpdate(id);
+void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
+	PacketRev0* packet = &apiFrame->rx.rev0.packet;
 
-	// Add report.
-	SensorDB db;
-	db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
+	switch(packet->header.command) {
+		case REQUEST_RECEIVER: {
+			#ifdef PACKETS_DEBUG
+			fprintf(__stdout_log, "receiver request\n");
+			#endif
+			
+			XBeeAddress xbee_addr;
+			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
+
+			SendReceiverAddress(port, &xbee_addr);
+			
+			SensorId tempId;
+			tempId.uId = xbee_addr.uAddr;
+
+			if(GetSensorMap()[tempId] == NULL) {
+				AddSensor(&tempId); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
+			}
+			
+			#ifdef PACKET_DEBUG
+			LogEntry entry;
+			entry.sensorId = xbee_addr;
+			entry.time = time(NULL);
+			
+			Logger_AddEntry(&entry, REQUEST_RECEIVER);
+			#endif
+			
+			SensorUpdate(&tempId); // This will update the receiver struct and let the other thread know not to throw a fit.
+		} break;
+
+		case REPORT: {
+			//hexdump(packet, 32);
+			int resistance = packet->report.thermistorResistance;
+			int res25C = packet->report.thermistorResistance25C;
+			int probeBeta = packet->report.thermistorBeta;
+			
+			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
+			
+			#ifdef PACKET_DEBUG_VERBOSE0
+			fprintf(__stdout_log, "probe0_temp=%f\n", probe0_temp);
+			#endif
+			
+			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
+			XBeeAddress address;
+			SensorId id;
+			address = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address);
+			id.uId = address.uAddr;
+
+			#ifdef PACKET_DEBUG_VERBOSE0
+			LogEntry entry;
+			entry.resistance = packet->report.thermistorResistance;
+
+			entry.sensorId = id;
+			entry.time = time(NULL);
+			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
+
+			Logger_AddEntry(&entry, packet->header.command);
+			#endif
+			
+			if(GetSensorMap()[id] == NULL) {
+				AddSensor(&id);
+			}
+			
+			// Make sure our internal representation of this 
+			// sensor stays alive.
+			SensorUpdate(&id);
+			
+			// Add report.
+			SensorDB db;
+			db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
+		} break;
+	}
 }

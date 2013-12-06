@@ -16,15 +16,7 @@
 #include "globaldef.h"
 #include "serial.h"
 
-typedef struct __XBeeAddress {
-    unsigned char addr[8];
-} XBeeAddress;
-
 bool operator<(const XBeeAddress& left, const XBeeAddress& right);
-
-struct __XBeeAddress_7Bytes {
-	unsigned char addr[7];
-} __attribute__((packed));
 
 typedef struct __XBeeAddress_7Bytes XBeeAddress_7Bytes;
 
@@ -90,19 +82,31 @@ struct __ATCmdResponse_NoData {
 	byte checksum;
 } __attribute__((packed));
 
-struct __RxFrame {
-    byte start_delimiter;
-    byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
-    byte frame_type;
-    byte frame_id;
-    XBeeAddress_7Bytes source_address;
-    unsigned short reserved; // Should equal 0xFEFF
-    byte receive_options;
-    Packet packet;
-    byte checksum;
+struct __RxFrameRev0 {
+	byte start_delimiter;
+	byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
+	byte frame_type;
+	byte frame_id;
+	XBeeAddress_7Bytes source_address;
+	unsigned short reserved; // Should equal 0xFEFF
+	byte receive_options;
+	PacketRev0 packet;
+	byte checksum;
 } __attribute__((packed));
 
-struct __TxFrame {
+struct __RxFrameRev1 {
+    byte start_delimiter;
+	byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
+	byte frame_type;
+	byte frame_id;
+	XBeeAddress_7Bytes source_address;
+	unsigned short reserved; // Should equal 0xFEFF
+	byte receive_options;
+	PacketRev1 packet;
+	byte checksum;
+} __attribute__((packed));
+
+struct __TxFrameRev0 {
     byte start_delimiter;
     byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
     byte frame_type;
@@ -111,11 +115,24 @@ struct __TxFrame {
     unsigned short reserved; // Should equal 0xFEFF
     byte broadcast_radius;
     byte transmit_options;
-    Packet packet;
+    PacketRev0 packet;
     byte checksum;
 } __attribute__((packed));
 
-struct __TxStatusFrame{
+struct __TxFrameRev1 {
+    byte start_delimiter;
+    byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
+    byte frame_type;
+    byte frame_id;
+    XBeeAddress destination_address;
+    unsigned short reserved; // Should equal 0xFEFF
+    byte broadcast_radius;
+    byte transmit_options;
+    PacketRev1 packet;
+    byte checksum;
+} __attribute__((packed));
+
+struct __TxStatusFrame {
     byte start_delimiter;
     byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
     byte frame_type;
@@ -129,25 +146,39 @@ struct __TxStatusFrame{
 
 typedef struct __ATCmdFrame ATCmdFrame;
 typedef struct __ATCmdFrame_NoData ATCmdFrame_NoData;
-typedef struct __RxFrame RxFrame;
-typedef struct __TxFrame TxFrame;
+
+typedef struct __RxFrameRev0 RxFrameRev0;
+typedef struct __RxFrameRev1 RxFrameRev1;
+
+typedef struct __TxFrameRev0 TxFrameRev0;
+typedef struct __TxFrameRev1 TxFrameRev1;
+
 typedef struct __TxStatusFrame TxStatusFrame;
 typedef struct __ATCmdResponse ATCmdResponse;
 typedef struct __ATCmdResponse_NoData ATCmdResponse_NoData;
 
 typedef union __Frame {
-    RxFrame rx;
-    TxFrame tx;
-    TxStatusFrame txStatus;
+    
+	union {
+		RxFrameRev0 rev0;
+		RxFrameRev1 rev1;
+	} rx;
 
-    ATCmdFrame atCmd;
-    ATCmdFrame_NoData atCmdNoData;
-    
-    ATCmdResponse atCmdResponse;
-    ATCmdResponse_NoData atCmdResponseNoData;
-    
-    byte buffer[60];
-    
+	union {
+		TxFrameRev0 rev0;
+		TxFrameRev1 rev1;
+	} tx;
+
+	TxStatusFrame txStatus;
+
+	ATCmdFrame atCmd;
+	ATCmdFrame_NoData atCmdNoData;
+
+	ATCmdResponse atCmdResponse;
+	ATCmdResponse_NoData atCmdResponseNoData;
+
+	byte buffer[128];
+
 } Frame;
 
 int XBAPI_HandleFrame(SerialPort* port, int expected);
