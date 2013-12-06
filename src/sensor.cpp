@@ -17,6 +17,10 @@ using namespace std;
 map<XBeeAddress, SensorId> XBeeAddressToSensorIdMap;
 map<SensorId, Sensor*> sensorMap;
 
+bool operator<(const SensorId& left, const SensorId& right) {
+	return left.uId < right.uId;
+}
+
 extern string GetXBeeID(XBeeAddress* addr);
 extern string GetID(SensorId* id);
 void SensorUpdate(SensorId* id) {

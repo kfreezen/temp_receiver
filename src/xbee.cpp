@@ -16,12 +16,10 @@ extern FILE* __stdout_log;
 
 // This enables the map<...> to use the XBeeAddress as a key.
 bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
-	if(sizeof(u64) == sizeof(XBeeAddress)) {
-		u64 left_id = *((u64*)&left);
-		u64 right_id = *((u64*)&right);
-		return (left_id < right_id);
+	if(sizeof(uint64) == sizeof(XBeeAddress)) {
+		return left.uAddr < right.uAddr;
 	} else {
-		fprintf(__stdout_log, "sizeof(u64) != %d\n", sizeof(XBeeAddress));
+		fprintf(__stdout_log, "sizeof(uint64) != %d\n", sizeof(XBeeAddress));
 		return false;
 	}
 }
@@ -56,25 +54,41 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
     return check;
 }
 
-void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int length) {
+void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length) {
 	Frame apiFrame;
+	int size = 0;
 
-	apiFrame.tx.start_delimiter = 0x7e;
-    apiFrame.tx.length[0] = (sizeof(TxFrame)-4) >> 8;
-    apiFrame.tx.length[1] = (sizeof(TxFrame)-4) & 0xFF;
-    apiFrame.tx.frame_id = 1; // TODO:  Add id param and frame handling.
-    apiFrame.tx.frame_type = API_TRANSMIT_FRAME;
-    memcpy(&apiFrame.tx.destination_address, address, sizeof(XBeeAddress));
-    apiFrame.tx.reserved = 0xFEFF;
-    apiFrame.tx.transmit_options = 0;
-    apiFrame.tx.broadcast_radius = 0;
-    memcpy(&apiFrame.tx.packet, buffer, (length>sizeof(Packet)) ? sizeof(Packet) : length);
-    apiFrame.tx.checksum = checksum(apiFrame.buffer+3, sizeof(TxFrame)-4);
+	if(length == sizeof(PacketRev0)) {
+		size = sizeof(TxFrameRev0);
+	} else {
+		size = sizeof(TxFrameRev1);
+	}
 
-	port->write(&apiFrame, sizeof(TxFrame));
+	// We can use .tx.rev0 in these option settings because these are unchanged over revisions due to the fact that they
+	// are part of the xbee's frames. 
+	apiFrame.tx.rev0.start_delimiter = 0x7e;
+	apiFrame.tx.rev0.length[0] = (size-4) >> 8;
+	apiFrame.tx.rev0.length[1] = (size-4) & 0xFF;
+	apiFrame.tx.rev0.frame_id = id; // TODO:  Add id param and frame handling.
+	apiFrame.tx.rev0.frame_type = API_TRANSMIT_FRAME;
+	memcpy(&apiFrame.tx.rev0.destination_address, address, sizeof(XBeeAddress));
+	apiFrame.tx.rev0.reserved = 0xFEFF;
+	apiFrame.tx.rev0.transmit_options = 0;
+	apiFrame.tx.rev0.broadcast_radius = 0;
+
+	// TODO:  We should truncate this depending on length, instead of having just one fixed length.
+
+	memcpy(&apiFrame.tx.rev1.packet, buffer, (length>sizeof(PacketRev1)) ? sizeof(PacketRev1) : length);
+	if(length == sizeof(PacketRev0)) {
+		apiFrame.tx.rev0.checksum = checksum(apiFrame.buffer + 3, sizeof(TxFrameRev0)-4);
+	} else {
+		apiFrame.tx.rev1.checksum = checksum(apiFrame.buffer+3, sizeof(TxFrameRev1)-4);
+	}
+
+	port->write(&apiFrame, sizeof(TxFrameRev1));
 
 	XBAPI_HandleFrame(port, API_TRANSMIT_STATUS);
-	
+
 	#ifdef XBEE_DEBUG
 	fprintf(__stdout_log, "XBAPI_Transmit()\n");
 	#endif
@@ -115,16 +129,16 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 			goto reset_for_loop; // The other way is to set i to -1, but I like using overflows to 0 in a loop less than I like using goto's.
 			// XXX May not be the cleanest way to do this.
 		} else if(bytesRead > 0) {
-			frame->rx.length[i] = c;
+			frame->rx.rev0.length[i] = c;
 		} else {
 			return false;
 		}
 	}
-	int length = (frame->rx.length[0] << 8) | frame->rx.length[1];
+	int length = (frame->rx.rev0.length[0] << 8) | frame->rx.rev0.length[1];
 	length += 1; // This is so that we include the checksum as well.
 
 #ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.length[0], frame->rx.length[1]);
+	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.rev0.length[0], frame->rx.rev0.length[1]);
 #endif
 
 	// Read in the rest of the stuff.
@@ -159,8 +173,8 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 extern void hexdump(void* ptr, int len);
 #endif
 
-u32 swap_endian_32(u32 n) {
-    unsigned long r = 0;
+uint32 swap_endian_32(uint32 n) {
+    uint32 r = 0;
     r |= (n&0xFF) << 24;
     r |= ((n>>8)&0xFF) << 16;
     r |= ((n>>16)&0xFF) << 8;
@@ -184,7 +198,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 	
 	int length = XBAPI_ReadFrame(port, &apiFrame);
 	
-	if(length > sizeof(Frame)) {
+	/*if(length > sizeof(Frame)) {
 		switch(expected) {
 			case API_RX_INDICATOR:
 				length = sizeof(RxFrame);
@@ -200,7 +214,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 				}
 				break;
 		}
-	}
+	}*/
 	
 	//port->read(apiFrame.buffer+3, length);
 	
@@ -208,7 +222,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 	fprintf(__stdout_log, "Handling ... ");
 	#endif
 	
-	switch(apiFrame.rx.frame_type) {
+	switch(apiFrame.rx.rev0.frame_type) {
 		case API_RX_INDICATOR: {
 			HandlePacket(port, &apiFrame);
 				
@@ -217,7 +231,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int exp
 		case API_AT_CMD_RESPONSE: {
 			// First figure out the length of the data.
 			// length of data is difference between api frame's length field and the sizeof(AtCmdResponse_NoData)-4
-			int apiFrameLength = (apiFrame.rx.length[0] << 8) | apiFrame.rx.length[1];
+			int apiFrameLength = (apiFrame.rx.rev0.length[0] << 8) | apiFrame.rx.rev0.length[1];
 			int dataLength = apiFrameLength - (sizeof(ATCmdResponse_NoData) - 4);
 			// Now we take the data and put it into an unsigned int.
 			if(dataLength>maxDataLength) {

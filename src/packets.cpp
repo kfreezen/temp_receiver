@@ -4,6 +4,8 @@
 #include "logger.h"
 #include "sensor.h"
 #include "crc16.h"
+#include "curl.h"
+#include "settings.h"
 
 #include <cstdio>
 #include <cmath>
@@ -47,7 +49,7 @@ HandlePacketCallbackStruct handlePacketCallbacks[] = {
 
 int handlePacketCallbacksLength = sizeof(handlePacketCallbacks) / sizeof(*handlePacketCallbacks);
 
-void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* packet) {
+void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* packet, int id) {
 	int size;
 	switch(revision) {
 		case REVISION_0:
@@ -59,10 +61,10 @@ void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* pack
 		break;
 	}
 
-	XBAPI_Transmit(port, address, packet, size);
+	XBAPI_Transmit(port, address, packet, id, size);
 }
 
-void SendReceiverAddress(SerialPort* port, XBeeAddress* dest) {
+void SendReceiverAddress(SerialPort* port, XBeeAddress* dest, int id) {
 	fprintf(__stdout_log, "Warning:  SendReceiverAddress is deprecated.\n");
 
 	#ifdef PACKETS_DEBUG
@@ -72,42 +74,33 @@ void SendReceiverAddress(SerialPort* port, XBeeAddress* dest) {
 	#endif
 	
 	PacketRev0 packet_buffer;
-	memset(&packet_buffer, 0, sizeof(Packet));
+	memset(&packet_buffer, 0, sizeof(PacketRev0));
 
 	packet_buffer.header.command = REQUEST_RECEIVER;
 	packet_buffer.header.magic = 0xAA55;
 	packet_buffer.header.revision = PROGRAM_REVISION;
-	packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(Packet));
+	packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(PacketRev0));
 
-	SendPacket(port, REVISION_0, dest, &packet_buffer);
+	SendPacket(port, REVISION_0, dest, &packet_buffer, id);
 }
 
 void HandlePacket(SerialPort* port, Frame* apiFrame) {
 	//fprintf(__stdout_log, "HELP US ALL!\n");
 
-	Packet* packet = &apiFrame->rx.packet;
-	
-	#ifdef PACKETS_DEBUG_VERBOSE0
-	hexdump(apiFrame, sizeof(Frame));
-	#endif
-	
-	// Do our CRC16 compare here.
-	unsigned short crc16 = packet->header.crc16;
-	packet->header.crc16 = 0;
-	
-	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(Packet));
-	
-	if(calc_crc16 != crc16) {
-		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(Packet));
-		return;
-	}
+	int revision = 0;
+
+	// We have to do this to get the revision.
+	PacketRev0* packet = &apiFrame->rx.rev0.packet;
+
+	// Right now, .revision is at the same location for all revisions, thus we can just do this:
+	revision = packet->header.revision;
 
 	int i;
 	for(i=0; i < handlePacketCallbacksLength; i++) {
-		Callback* cb = &handlePacketCallbacks[i];
+		HandlePacketCallbackStruct* cb = &handlePacketCallbacks[i];
 		// This finds a HandlePacket for a specific revision.
-		if(packet->header.revision >= cb->minRev && packet->header.revision <= cb->maxRev) {
-			cb->handlePacketCallback(apiFrame);
+		if(revision >= cb->minRev && revision <= cb->maxRev) {
+			cb->handlePacketCallback(port, apiFrame);
 		}
 	}
 
@@ -181,6 +174,21 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 
 void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
+	
+	#ifdef PACKETS_DEBUG_VERBOSE0
+	hexdump(apiFrame, sizeof(Frame));
+	#endif
+	
+	// Do our CRC16 compare here.
+	unsigned short crc16 = packet->header.crc16;
+	packet->header.crc16 = 0;
+	
+	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev1));
+	
+	if(calc_crc16 != crc16) {
+		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
+		return;
+	}
 
 	switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
@@ -193,12 +201,13 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 				SimpleCurl* curl = new SimpleCurl();
 				string url = Settings::get("server") + string("/api/getid");
 				CURLBuffer* buf = curl->get(url, "");
+				
 				sensorId.uId = strtoul(buf->buffer, NULL, 16);
+				
 				delete buf;
 				delete curl;
 			}
 
-			packet->receiverAck.sensorId = sensorId;
 			PacketRev1* reply = new PacketRev1;
 			memset(reply, 0, sizeof(PacketRev1));
 			reply->header.flags = 0;
@@ -208,7 +217,7 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			reply->header.revision = packet->header.revision;
 			reply->header.command = RECEIVER_ACK;
 			reply->header.sensorId = sensorId;
-			SendPacket(port, REVISION_1, xbee_addr, packet);
+			SendPacket(port, REVISION_1, &xbee_addr, packet, apiFrame->rx.rev0.frame_id);
 
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
@@ -221,6 +230,21 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 
 void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
 	PacketRev0* packet = &apiFrame->rx.rev0.packet;
+	
+	#ifdef PACKETS_DEBUG_VERBOSE0
+	hexdump(apiFrame, sizeof(Frame));
+	#endif
+	
+	// Do our CRC16 compare here.
+	unsigned short crc16 = packet->header.crc16;
+	packet->header.crc16 = 0;
+	
+	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev0));
+	
+	if(calc_crc16 != crc16) {
+		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev0));
+		return;
+	}
 
 	switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
@@ -231,7 +255,7 @@ void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
 			XBeeAddress xbee_addr;
 			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
 
-			SendReceiverAddress(port, &xbee_addr);
+			SendReceiverAddress(port, &xbee_addr, apiFrame->rx.rev0.frame_id);
 			
 			SensorId tempId;
 			tempId.uId = xbee_addr.uAddr;

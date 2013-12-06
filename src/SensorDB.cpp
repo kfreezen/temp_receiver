@@ -6,6 +6,8 @@
  */
 
 #include "SensorDB.h"
+#include "settings.h"
+
 #include <curl/curl.h>
 #include <exception>
 #include <cstdio>
@@ -38,11 +40,15 @@ typedef struct {
 	int currentItr;
 } CURLRecvStruct;
 
-map<string, string> settings;
+//map<string, string> settings;
 //const char* settings["server"] = "http://localhost";
 
+#pragma gcc poison loadSettings
 void loadSettings(const char* file) {
-	ifstream in;
+	Settings::load(string(file));
+	fprintf(__stdout_log, "You should use Settings::load instead.\n");
+
+	/*ifstream in;
 	in.open(file);
 
 	while(!in.eof()) {
@@ -56,7 +62,7 @@ void loadSettings(const char* file) {
 		settings[key] = value;
 	}
 
-	in.close();
+	in.close();*/
 }
 
 int processData(char* _buffer, int size, int nmemb, void* userPointer) {
@@ -117,7 +123,7 @@ bool SensorDB::AddNetwork(std::string net_id) {
 		throw SensorDBException("curl==NULL");
 	}
 
-	string serverCallString = string(settings["server"]) + string("/networks.php?do=add");
+	string serverCallString = Settings::get("server") + string("/networks.php?do=add");
 	char* cPOST = new char[128];
 	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
 	
@@ -183,7 +189,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 		throw SensorDBException("curl==NULL");
 	}
 	
-	string serverCallString = settings["server"] + string("/sensors.php?do=add");
+	string serverCallString = Settings::get("server") + string("/sensors.php?do=add");
 	char* cPOST = NULL;
 	try {
 		cPOST = new char[128];
@@ -210,7 +216,6 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
 	
 	bool retVal = false;
-	
 	if(curl_easy_perform(curl)) {
 		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
 	} else {
@@ -257,7 +262,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 		throw SensorDBException("curl==NULL");
 	}
 	
-	string serverCallString = settings["server"] + string("/report.php?do=add");
+	string serverCallString = Settings::get("server") + string("/report.php?do=add");
 	char* cPOST = NULL;
 	try {
 		cPOST = new char[128];

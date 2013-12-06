@@ -4,6 +4,8 @@
 
 extern FILE* __stdout_log;
 
+int ReceiverInstance::nextInstanceId = 0;
+
 ReceiverInstance::ReceiverInstance(SerialPort* port) {
 	ReceiverInstance::port = port;
 	ReceiverInstance::thread = NULL;

@@ -186,7 +186,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int length, int expected);
 
 unsigned char checksum(void* addr, int length);
 unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char checksum);
-void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int length);
+void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length);
 int XBAPI_Command(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid);
 
 #endif
