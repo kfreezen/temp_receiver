@@ -94,25 +94,48 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	}
 }
 
-CURLBuffer* SimpleCurl::post(string url, string data) {
+CURLBuffer* SimpleCurl::post(string url, string data, int postType = POST_JSON) {
 	CURLBuffer* buf = new CURLBuffer;
+
+	char* postfields = new char[data.length()+1];
+	strcpy(postfields, data.c_str());
 
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, url.c_str());
 	curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
-	curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIELDS, (void*) data.c_str());
+	curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIELDS, (void*) postfields);
+
+	struct curl_slist* headers = NULL;
+	switch(postType) {
+		case POST_FORMDATA:
+			headers = curl_slist_append(headers, "Content-type: application/x-www-form-urlencoded");
+			break;
+		case POST_JSON:
+			headers = curl_slist_append(headers, "Content-type: application/json");
+			break;
+	}
+
+	curl_easy_setopt(this->curlHandle, CURLOPT_HTTPHEADER, headers);
 
 	bool retVal = false;
 
 	if(curl_easy_perform(this->curlHandle)) {
 		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
 		
+		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
+		
+		delete postfields;
 		delete buf;
 		return NULL;
 	} else {
+		fprintf(__stdout_log, "Something went right.\n");
+		
+		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
+		
+		delete postfields;
 		return buf;
 	}
 }

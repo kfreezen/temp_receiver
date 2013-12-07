@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "tests.h"
 #include "xbee.h"
 #include "globaldef.h"
 #include "serial.h"
@@ -134,8 +135,22 @@ extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 0
 
-int main() {
+int main(int argc, char** argv) {
+	__stdout_log = stdout;
+	setvbuf(__stdout_log, NULL, _IONBF, 0);
+	
+	argc--;
+	argv++;
+	for(int i=0; i < argc; i++) {
+		if(!strcmp(argv[i], "tests")) {
+			exit(tests());
+		}
+	}
+
+#if ENABLE_DAEMON == 1
 	__stdout_log = fopen("stdout_log.log", "w+");
+#endif
+
 	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
 
 	// Split this into a daemon.

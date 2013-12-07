@@ -6,6 +6,9 @@
 
 using std::string;
 
+#define POST_JSON 1
+#define POST_FORMDATA 0
+
 class CURLBuffer {
 public:
 	~CURLBuffer() {
@@ -28,7 +31,7 @@ public:
 	SimpleCurl();
 	~SimpleCurl();
 
-	CURLBuffer* post(string url, string data);
+	CURLBuffer* post(string url, string data, int postType);
 	CURLBuffer* get(string url, string data);
 private:
 	static int writeFunc(char* buffer, int size, int nmemb, void* userPointer);
