@@ -2,4 +2,6 @@ log.txt
 receiver
 stdout_log.log
 *~
+.*.swp
+.*.swo
 *.o

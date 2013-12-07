@@ -60,10 +60,11 @@ void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id
 
 	if(length == sizeof(PacketRev0)) {
 		size = sizeof(TxFrameRev0);
+		fprintf(__stdout_log, "TxFrameRev0\n");
 	} else {
 		size = sizeof(TxFrameRev1);
+		fprintf(__stdout_log, "TxFrameRev1\n");
 	}
-
 	// We can use .tx.rev0 in these option settings because these are unchanged over revisions due to the fact that they
 	// are part of the xbee's frames. 
 	apiFrame.tx.rev0.start_delimiter = 0x7e;

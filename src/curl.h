@@ -9,7 +9,9 @@ using std::string;
 class CURLBuffer {
 public:
 	~CURLBuffer() {
-		delete buffer;
+		if(buffer != NULL) {
+			delete buffer;
+		}
 	}
 
 	char* buffer;

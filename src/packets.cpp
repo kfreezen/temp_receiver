@@ -10,10 +10,11 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 
 #include <map>
 
-//#define PACKETS_DEBUG
+#define PACKETS_DEBUG
 
 using namespace std;
 
@@ -187,6 +188,7 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 	
 	if(calc_crc16 != crc16) {
 		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
+		hexdump(packet, sizeof(PacketRev1));
 		return;
 	}
 
@@ -196,14 +198,23 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
 
 			SensorId sensorId = packet->header.sensorId;
-			if(sensorId.uId == 0xFFFFFFFFFFFFFFFF) {
+			long n = 0;
+			n = ~n;
+
+			if(sensorId.uId == n) {
 				// Get a new sensor ID.
 				SimpleCurl* curl = new SimpleCurl();
 				string url = Settings::get("server") + string("/api/getid");
 				CURLBuffer* buf = curl->get(url, "");
 				
-				sensorId.uId = strtoul(buf->buffer, NULL, 16);
-				
+				if(buf == NULL) {
+					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
+					exit(1);
+				} else {
+					sensorId.uId = strtoul(buf->buffer, NULL, 16);
+				}
+
+				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), sensorId.uId);
 				delete buf;
 				delete curl;
 			}
@@ -243,6 +254,7 @@ void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
 	
 	if(calc_crc16 != crc16) {
 		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev0));
+		hexdump(packet, sizeof(PacketRev0));
 		return;
 	}
 

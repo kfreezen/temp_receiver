@@ -44,7 +44,8 @@ void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
 }
 
 void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
-	fprintf(__stdout_log, "SIGINT received from %d, ignoring...\n", siginfo->si_pid);
+	fprintf(__stdout_log, "SIGINT received from %d, exiting...\n", siginfo->si_pid);
+	exit(0);
 }
 
 void init_sig_handlers() {
@@ -131,6 +132,8 @@ XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes address_7bytes) {
 
 extern unsigned swap_endian_32(unsigned n);
 
+#define ENABLE_DAEMON 0
+
 int main() {
 	__stdout_log = fopen("stdout_log.log", "w+");
 	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
@@ -140,7 +143,9 @@ int main() {
 	pid_t sid = 0;
 	
 	fclose(__stdout_log);
-
+	
+	// forking!
+#if ENABLE_DAEMON == 1
 	process_id = fork();
 
 	if(process_id < 0) {
@@ -155,25 +160,37 @@ int main() {
 		//fclose(__stdout_log);
 	}
 	umask(0);
+	// done forking!
+#endif
 
 	__stdout_log = fopen("stdout_log.log", "a+");
 	setvbuf(__stdout_log, NULL, _IONBF, 0);
 
+#if ENABLE_DAEMON == 1
 	sid = setsid();
 	if(sid < 0) {
 		fprintf(__stdout_log, "Failed getting session ID.\n");
 		exit(1);
 	}
+#endif
+
 	// Take care of logging the signals at least before we crash.	
 	init_sig_handlers();
 	
 	// Now let's redirect stdout to a file called "receiver_stdout"
+#if ENABLE_DAEMON == 1
 	FILE* fp = freopen("/tmp/temp_receiver_stdout", "a+", stdout);
-	// Now since the above line didn't work for some reason...
+	FILE* errfp = freopen("/tmp/temp_receiver_stderr", "a+", stderr);
+#else
+	__stdout_log = stdout;
+#endif
 
+	// Now since the above line didn't work for some reason...
+#if ENABLE_DAEMON == 1
 	if(fp == NULL) {
 		fprintf(__stdout_log, "Failure redirecting stdout.\n");
 	}
+#endif
 
 	// Load our settings.
 	loadSettings("receiver_settings");
