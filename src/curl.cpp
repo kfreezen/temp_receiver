@@ -17,7 +17,10 @@ void CURLBuffer::init(int totalBytes) {
 		this->buffer = new char[(totalBytes>256)?totalBytes+256:256];
 	} catch(bad_alloc& ba) {
 		fprintf(__stdout_log, "CURLBuffer::init() -- bad alloc caught:  %s\n", ba.what());
+		return;
 	}
+
+	memset(this->buffer, 0, (totalBytes>256) ? totalBytes+256:256);
 }
 
 void CURLBuffer::extend(int totalBytes) {
@@ -52,11 +55,6 @@ int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) 
 
 	if(buf->buffer == NULL) {
 		buf->init(size*nmemb);
-		try {
-			buf->buffer = new char[(size*nmemb>256)?size*nmemb+256:256];
-		} catch(bad_alloc& ba) {
-			fprintf(__stdout_log, "bad alloc caught:  %s\n", ba.what());
-		}
 	} else if(buf->currentItr + size*nmemb > buf->length) {
 		buf->extend(size*nmemb);
 	}
@@ -130,8 +128,7 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType = POST_JSON) 
 		delete buf;
 		return NULL;
 	} else {
-		fprintf(__stdout_log, "Something went right.\n");
-		
+
 		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
 		

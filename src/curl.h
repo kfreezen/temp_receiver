@@ -17,6 +17,12 @@ public:
 		}
 	}
 
+	CURLBuffer() {
+		buffer = NULL;
+		length = 0;
+		currentItr = 0;
+	}
+
 	char* buffer;
 	int length;
 	int currentItr;
