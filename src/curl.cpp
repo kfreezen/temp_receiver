@@ -66,6 +66,13 @@ int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) 
 	return size*nmemb;
 }
 
+string SimpleCurl::escape(string toEscape) {
+	char* escapedString = curl_easy_escape(this->curlHandle, toEscape.c_str(), toEscape.length());
+	string escapedStringRet = string(escapedString);
+	curl_free(escapedString);
+	return escapedStringRet;
+}
+
 CURLBuffer* SimpleCurl::get(string url, string data) {
 	CURLBuffer* buf = new CURLBuffer;
 	string fullUrl = url;
@@ -92,7 +99,7 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	}
 }
 
-CURLBuffer* SimpleCurl::post(string url, string data, int postType = POST_JSON) {
+CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	CURLBuffer* buf = new CURLBuffer;
 
 	char* postfields = new char[data.length()+1];

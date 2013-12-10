@@ -37,8 +37,11 @@ public:
 	SimpleCurl();
 	~SimpleCurl();
 
-	CURLBuffer* post(string url, string data, int postType);
+	CURLBuffer* post(string url, string data, int postType=POST_JSON);
 	CURLBuffer* get(string url, string data);
+
+	string escape(string toEscape);
+	
 private:
 	static int writeFunc(char* buffer, int size, int nmemb, void* userPointer);
 	CURL* curlHandle;

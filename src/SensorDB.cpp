@@ -8,6 +8,7 @@
 #include "SensorDB.h"
 #include "settings.h"
 
+#include "curl.h"
 #include <curl/curl.h>
 #include <exception>
 #include <cstdio>
@@ -117,53 +118,27 @@ bool SensorDB::AddNetwork(std::string net_id) {
 		throw SensorDBException("net_id wrong length");
 	}
 
-	curl_global_init(CURL_GLOBAL_ALL);
-	CURL* curl = curl_easy_init();
-	if(curl == NULL) {
-		throw SensorDBException("curl==NULL");
-	}
+	SimpleCurl curl;
 
-	string serverCallString = Settings::get("server") + string("/networks.php?do=add");
+	string serverCallString = Settings::get("server") + string("/network/add");
 	char* cPOST = new char[128];
-	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
 	
-	sprintf(cPOST, "net_id=%s", net_id_encoded);
-	curl_free(net_id_encoded);
+	string encodedNetworkId = curl.escape(net_id);
+
+	sprintf(cPOST, "{'network_id': '%s'", encodedNetworkId.c_str());
 	
-	CURLRecvStruct data;
-	memset(&data, 0, sizeof(CURLRecvStruct));
-	
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
+	CURLBuffer* data = curl.post(serverCallString, string(cPOST));
 	
 	bool retVal = false;
-	
-	if(curl_easy_perform(curl)) {
-		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
-	} else {
-		// Now we parse the string.
-		if(data.buffer==NULL) {
-			fprintf(__stdout_log, "ERROR:  data.buffer is null but shouldn't be.\n");
-			retVal = false;
-		}
-		
-		if(!strcmp(data.buffer, "true")) {
-			retVal = true;
-		} else if(!strcmp(data.buffer, "false")) {
-			retVal = false;
-		}
+
+	if(string(data->buffer) == "true") {
+		retVal = true;
+	} else if(string(data->buffer) == "false") {
+		retVal = false;
 	}
 	
 	delete cPOST;
-	
-	curl_easy_cleanup(curl);
-	
-	if(data.buffer != NULL) {
-		delete data.buffer;
-	}
+	delete data;
 
 	return retVal;
 }
@@ -183,63 +158,35 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 		throw SensorDBException("sensor_id wrong length");
 	}
 	
-	curl_global_init(CURL_GLOBAL_ALL);
-	CURL* curl = curl_easy_init();
-	if(curl == NULL) {
-		throw SensorDBException("curl==NULL");
-	}
+	SimpleCurl curl;
 	
-	string serverCallString = Settings::get("server") + string("/sensors.php?do=add");
+	string serverCallString = Settings::get("server") + string("/sensor/add");
 	char* cPOST = NULL;
+	
 	try {
-		cPOST = new char[128];
+		cPOST = new char[256];
 	} catch(bad_alloc& ba) {
 		fprintf(__stdout_log, "bad_alloc caught %s\n", ba.what());
 	}
+	
+	string encodedNetworkId = curl.escape(net_id);
+	string encodedSensorId = curl.escape(sensor_id);
 
-	char* net_id_encoded = curl_easy_escape(curl, net_id.c_str(), net_id.length());
-	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
-	
-	sprintf(cPOST, "net_id=%s&sensor_id=%s&recv_auth=%s", net_id_encoded, sensor_id_encoded, RECV_AUTH);
-	curl_free(net_id_encoded);
-	curl_free(sensor_id_encoded);
-	
-	CURLRecvStruct data;
-	memset(&data, 0, sizeof(CURLRecvStruct));
-	
+	sprintf(cPOST, "{'network_id': '%s', 'sensor_id': '%s', 'recv_auth': '%s'}", encodedNetworkId.c_str(), encodedSensorId.c_str(), RECV_AUTH);
+
 	fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
 	
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
-	
-	bool retVal = false;
-	if(curl_easy_perform(curl)) {
-		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
-	} else {
-		// Now we parse the string.
-		if(data.buffer==NULL) {
-			fprintf(__stdout_log, "ERROR:  data.buffer is null but shouldn't be.\n");
-			retVal = false;
-		}
+	CURLBuffer* data = curl.post(serverCallString, string(cPOST), POST_JSON);
 
-		if(!strcmp(data.buffer, "true")) {
-			retVal = true;
-		} else if(!strcmp(data.buffer, "false")) {
-			retVal = false;
-		}
+	bool retVal;
+
+	if(string(data->buffer) == "true") {
+		retVal = true;
+	} else if(string(data->buffer) == "false") {
+		retVal = false;
 	}
-	
+
 	delete cPOST;
-	
-	// Clean up the receive structure
-	if(data.buffer != NULL) {
-		delete data.buffer;
-	}
-
-	curl_easy_cleanup(curl);
 	
 	return retVal;
 }

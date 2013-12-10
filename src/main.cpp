@@ -156,11 +156,11 @@ int main(int argc, char** argv) {
 	// Split this into a daemon.
 	pid_t process_id = 0;
 	pid_t sid = 0;
-	
+
+#if ENABLE_DAEMON == 1
 	fclose(__stdout_log);
 	
 	// forking!
-#if ENABLE_DAEMON == 1
 	process_id = fork();
 
 	if(process_id < 0) {
