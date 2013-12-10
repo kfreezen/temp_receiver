@@ -173,6 +173,17 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 	}*/
 }
 
+extern uint32 swap_endian_32(uint32);
+
+uint64 swap_endian_64(uint64 u) {
+	uint32 tmp0, tmp1;
+	tmp0 = swap_endian_32(u);
+	tmp1 = swap_endian_32(u >> 32);
+	uint64 ret = tmp0;
+	ret <<= 32;
+	ret |= tmp0;
+}
+
 void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
@@ -211,10 +222,10 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
 					exit(1);
 				} else {
-					sensorId.uId = strtoul(buf->buffer, NULL, 16);
+					sensorId.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
 				}
 
-				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), sensorId.uId);
+				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(sensorId.uId));
 				delete buf;
 				delete curl;
 			}
@@ -228,7 +239,10 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			reply->header.revision = packet->header.revision;
 			reply->header.command = RECEIVER_ACK;
 			reply->header.sensorId = sensorId;
-			SendPacket(port, REVISION_1, &xbee_addr, packet, apiFrame->rx.rev0.frame_id);
+			hexdump(reply, sizeof(PacketRev1));
+			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
+			
+			SendPacket(port, REVISION_1, &xbee_addr, reply, apiFrame->rx.rev0.frame_id);
 
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
