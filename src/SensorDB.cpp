@@ -18,6 +18,7 @@
 #include <string>
 #include <sstream>
 #include <map>
+#include <cmath>
 
 #define RECV_AUTH "QmykRDNrEMfSJuLTSgzTWZyu"
 
@@ -198,6 +199,10 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_value) {
 	double vals[NUM_PROBES];
 	vals[0] = probe0_value;
+	int i;
+	for(i = 1; i < NUM_PROBES; i++) {
+		vals[i] = nan("");
+	}
 
 	SensorDB::AddReport(sensor_id, timestamp, vals, 6.5);
 }
@@ -227,21 +232,29 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	
 	// This JSON templating is bound to lead to countless problems.
 	// We need to invest in a JSON encoder for C++.
-	
+	string probeValueStrings[NUM_PROBES];
+	stringstream ss;
+	int i;
+	for(i = 0; i < NUM_PROBES; i++) {
+		ss.str("");
+		ss << probeValues[i];
+		probeValueStrings[i] = ss.str();
+	}
+
 	sprintf(cPOST, "{ \
 			\"timestamp\": %lu, \
 			\"sensor_id\": \"%s\", \
 			\"probe_values\": \
 				[ \
-					{\"num\": 0, \"val\": %f, \"type\": \"%s\"}, \
-			 		{\"num\": 1, \"val\": %f, \"type\": \"%s\"}, \
-			 		{\"num\": 2, \"val\": %f, \"type\": \"%s\"}], \
+					{\"num\": 0, \"val\": \"%s\", \"type\": \"%s\"}, \
+			 		{\"num\": 1, \"val\": \"%s\", \"type\": \"%s\"}, \
+			 		{\"num\": 2, \"val\": \"%s\", \"type\": \"%s\"}], \
 			\"batt_level\": %f \
-			}", timestamp, sensor_id_encoded.c_str(), probeValues[0],
-			TEMP_TYPE, probeValues[1], TEMP_TYPE, probeValues[2], TEMP_TYPE,
+			}", timestamp, sensor_id_encoded.c_str(), probeValueStrings[0].c_str(),
+			TEMP_TYPE, probeValueStrings[1].c_str(), TEMP_TYPE, probeValueStrings[2].c_str(), TEMP_TYPE,
 			batteryLevel
 		);
-		
+
 	CURLBuffer* buf = curl.post(serverCallString, string(cPOST), POST_JSON);
 
 	if(string(buf->buffer) == "true") {
