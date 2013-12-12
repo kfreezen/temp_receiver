@@ -265,9 +265,29 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 	
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
 			XBeeAddress address;
-			SensorId id;
+			SensorId id = packet->header.sensorId;
 			address = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
-			id.uId = address.uAddr;
+		
+
+			uint64 n = 0;
+			n = ~n;
+			if(id.uId == n) {
+				// Get a new sensor ID.
+				SimpleCurl* curl = new SimpleCurl();
+				string url = Settings::get("server") + string("/api/getid");
+				CURLBuffer* buf = curl->get(url, "");
+				
+				if(buf == NULL) {
+					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
+					exit(1);
+				} else {
+					id.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
+				}
+
+				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(id.uId));
+				delete buf;
+				delete curl;
+			}
 
 			#ifdef PACKET_DEBUG_VERBOSE0
 			LogEntry entry;
@@ -291,6 +311,9 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			// Add report.
 			SensorDB db;	
 			db.AddReport(GetID(&id), time(NULL), probeTemps, 6.5);
+
+			hexdump(packet, sizeof(PacketRev1));
+
 		} break;
 	}
 }

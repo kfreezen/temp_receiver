@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include <pthread.h>
+
 using std::vector;
 using std::string;
 
@@ -26,6 +28,8 @@ class SerialPortException {
 		
 		string what;
 };
+
+typedef void (*SerialDataHandler)(int length, byte* data);
 
 // TODO:  Add baud rate changing code.
 class SerialPort {
@@ -54,7 +58,7 @@ class SerialPort {
 		}
 	private:
 		void init(string port, int baud);
-		
+
 		//FILE* portFile;
 		int portFileNo;
 
