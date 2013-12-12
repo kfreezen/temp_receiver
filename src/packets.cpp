@@ -6,6 +6,7 @@
 #include "crc16.h"
 #include "curl.h"
 #include "settings.h"
+#include "sensor.h"
 
 #include <cstdio>
 #include <cmath>
@@ -176,12 +177,10 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 extern uint32 swap_endian_32(uint32);
 
 uint64 swap_endian_64(uint64 u) {
-	uint32 tmp0, tmp1;
-	tmp0 = swap_endian_32(u);
-	tmp1 = swap_endian_32(u >> 32);
-	uint64 ret = tmp0;
-	ret <<= 32;
-	ret |= tmp0;
+	uint64 n0, n1;
+	n0 = (u >> 56) | ((u >> 40) & 0xFF00) | ((u >> 24) & 0xFF0000) | ((u >> 8) & 0xFF000000);
+	n1 = (u << 56) | ((u & 0xFF00) << 40) | ((u & 0xFF0000) << 24) | ((u & 0xFF000000) << 8);
+	return n0 | n1;
 }
 
 void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
@@ -247,9 +246,52 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
 			}
-
-
 		}
+		case TEMP_REPORT: {
+			uint32* probeResistances = packet->tempReport.probeResistances;
+			uint16 probeBeta = packet->tempReport.probeBeta;
+			uint32 res25C = packet->tempReport.probeResistance25C;
+			
+			int i;
+			
+			double probeTemps[NUM_PROBES];
+
+			for(i=0; i < NUM_PROBES; i++) {
+				probeTemps[i] = 1.0 / ((log((double)probeResistances[i] / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
+				if(probeResistances[i] == 0) {
+					probeTemps[i] = nan("");
+				}
+			}
+	
+			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
+			XBeeAddress address;
+			SensorId id;
+			address = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
+			id.uId = address.uAddr;
+
+			#ifdef PACKET_DEBUG_VERBOSE0
+			LogEntry entry;
+			entry.resistance = packet->report.thermistorResistance;
+
+			entry.sensorId = id;
+			entry.time = time(NULL);
+			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
+
+			Logger_AddEntry(&entry, packet->header.command);
+			#endif
+			
+			if(GetSensorMap()[id] == NULL) {
+				AddSensor(&id);
+			}
+			
+			// Make sure our internal representation of this 
+			// sensor stays alive.
+			SensorUpdate(&id);
+			
+			// Add report.
+			SensorDB db;	
+			db.AddReport(GetID(&id), time(NULL), probeTemps, 6.5);
+		} break;
 	}
 }
 

@@ -50,6 +50,8 @@ public:
 	  *
 	  */
 	 bool AddReport(std::string sensor_id, time_t timestamp, double probe0_temp);
+	 bool AddReport(std::string sensor_id, time_t timestamp, double* probeValues, double batteryLevel);
+
 };
 
 class SensorDBException {

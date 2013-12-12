@@ -7,6 +7,7 @@
 
 #include "SensorDB.h"
 #include "settings.h"
+#include "packets.h"
 
 #include "curl.h"
 #include <curl/curl.h>
@@ -120,12 +121,12 @@ bool SensorDB::AddNetwork(std::string net_id) {
 
 	SimpleCurl curl;
 
-	string serverCallString = Settings::get("server") + string("/network/add");
+	string serverCallString = Settings::get("server") + string("/api/network/add");
 	char* cPOST = new char[128];
 	
 	string encodedNetworkId = curl.escape(net_id);
 
-	sprintf(cPOST, "{'network_id': '%s'", encodedNetworkId.c_str());
+	sprintf(cPOST, "{\"network_id\": \"%s\"}", encodedNetworkId.c_str());
 	
 	CURLBuffer* data = curl.post(serverCallString, string(cPOST));
 	
@@ -160,7 +161,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	
 	SimpleCurl curl;
 	
-	string serverCallString = Settings::get("server") + string("/sensor/add");
+	string serverCallString = Settings::get("server") + string("/api/sensor/add");
 	char* cPOST = NULL;
 	
 	try {
@@ -172,7 +173,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	string encodedNetworkId = curl.escape(net_id);
 	string encodedSensorId = curl.escape(sensor_id);
 
-	sprintf(cPOST, "{'network_id': '%s', 'sensor_id': '%s', 'recv_auth': '%s'}", encodedNetworkId.c_str(), encodedSensorId.c_str(), RECV_AUTH);
+	sprintf(cPOST, "{\"network_id\": \"%s\", \"sensor_id\": \"%s\", \"recv_auth\": \"%s\"}", encodedNetworkId.c_str(), encodedSensorId.c_str(), RECV_AUTH);
 
 	fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
 	
@@ -195,6 +196,13 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 #define PROBE_NUM 0
 
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_value) {
+	double vals[NUM_PROBES];
+	vals[0] = probe0_value;
+
+	SensorDB::AddReport(sensor_id, timestamp, vals, 6.5);
+}
+
+bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeValues, double batteryLevel) {
 
 	bool retVal;
 	
@@ -203,64 +211,50 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 		throw SensorDBException("sensor_id wrong length");
 	}
 	
-	curl_global_init(CURL_GLOBAL_ALL);
-	CURL* curl = curl_easy_init();
-	if(curl == NULL) {
-		throw SensorDBException("curl==NULL");
-	}
+	//curl_global_init(CURL_GLOBAL_ALL);
+	SimpleCurl curl;
 	
-	string serverCallString = Settings::get("server") + string("/report.php?do=add");
+	string serverCallString = Settings::get("server") + string("/api/reports/add");
+	
 	char* cPOST = NULL;
 	try {
-		cPOST = new char[128];
+		cPOST = new char[512];
 	} catch(bad_alloc& ba) {
 		fprintf(__stdout_log, "bad_alloc caught %s\n", ba.what());
 	}
-
-	char* sensor_id_encoded = curl_easy_escape(curl, sensor_id.c_str(), sensor_id.length());
 	
-	sprintf(cPOST, "timestamp=%lu&sensor_id=%s&probe0_value=%f&type=%s&probe_num=%d", timestamp, sensor_id_encoded, probe0_value, TEMP_TYPE, PROBE_NUM);
-	curl_free(sensor_id_encoded);
+	string sensor_id_encoded = curl.escape(sensor_id);
 	
-	CURLRecvStruct data;
-	memset(&data, 0, sizeof(CURLRecvStruct));
+	// This JSON templating is bound to lead to countless problems.
+	// We need to invest in a JSON encoder for C++.
 	
-	//fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
-	
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, processData);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-	curl_easy_setopt(curl, CURLOPT_URL, serverCallString.c_str());
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)cPOST);
-	
-	if(curl_easy_perform(curl)) {
-		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
-	} else {
-		// Now we parse the string.
-		if(data.buffer==NULL) {
-			fprintf(__stdout_log, "ERROR:  data.buffer is null but shouldn't be.\n");
-			retVal = false;
-		}
+	sprintf(cPOST, "{ \
+			\"timestamp\": %lu, \
+			\"sensor_id\": \"%s\", \
+			\"probe_values\": \
+				[ \
+					{\"num\": 0, \"val\": %f, \"type\": \"%s\"}, \
+			 		{\"num\": 1, \"val\": %f, \"type\": \"%s\"}, \
+			 		{\"num\": 2, \"val\": %f, \"type\": \"%s\"}], \
+			\"batt_level\": %f \
+			}", timestamp, sensor_id_encoded.c_str(), probeValues[0],
+			TEMP_TYPE, probeValues[1], TEMP_TYPE, probeValues[2], TEMP_TYPE,
+			batteryLevel
+		);
 		
-		if(!strcmp(data.buffer, "true")) {
-			retVal = true;
-		} else if(!strcmp(data.buffer, "false")) {
-			retVal = false;
-		} else {
-			retVal = false;
-			fprintf(__stdout_log, "data:%s\n", data.buffer);
-		}
-	}
-	
-	delete cPOST;
-	
-	// Clear receive structure
-	if(data.buffer != NULL) {
-		delete data.buffer; // This delete and the other data.buffer 
-		// delete will take care of one memory leak.
+	CURLBuffer* buf = curl.post(serverCallString, string(cPOST), POST_JSON);
+
+	if(string(buf->buffer) == "true") {
+		retVal = true;
+	} else if(string(buf->buffer) == "false") {
+		retVal = false;
+	} else {
+		retVal = false;
+		fprintf(__stdout_log, "data:%s\n", buf->buffer);
 	}
 
-	curl_easy_cleanup(curl);
-	
+	delete cPOST;
+	delete buf;
+
 	return retVal;
 }

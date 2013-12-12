@@ -108,6 +108,8 @@ typedef union __PacketRev0 {
     byte packet_data[32];
 } PacketRev0;
 
+#define NUM_PROBES 3
+
 typedef union __PacketRev1 {
 
 	struct {
@@ -116,13 +118,13 @@ typedef union __PacketRev1 {
 		union {
 
 			struct {
-				uint32 probeResistances[3];
+				uint32 probeResistances[NUM_PROBES];
 				uint32 probeResistance25C;
 				uint16 probeBeta;
 				uint16 reserved0;
 				uint32 topResistorValue;
 				byte reserved1[8];
-			} report;
+			} tempReport;
 
 			struct {
 				byte reserved[32];

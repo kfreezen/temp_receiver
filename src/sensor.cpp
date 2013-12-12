@@ -21,8 +21,32 @@ bool operator<(const SensorId& left, const SensorId& right) {
 	return left.uId < right.uId;
 }
 
-extern string GetXBeeID(XBeeAddress* addr);
-extern string GetID(SensorId* id);
+string GetID(SensorId* id) {
+	char* s = new char[17];
+	int i;
+	for(i=0; i<8; i++) {
+		sprintf(&s[i<<1], "%02x", id->id[i]);
+	}
+
+	string _s = string(s);
+	delete s;
+	return _s;
+}
+
+string GetXBeeID(XBeeAddress* addr) {
+	/*char* s = new char[17];
+	int i;
+	for(i=0; i<8; i++) {
+		sprintf(&s[i<<1], "%02x", addr->addr[i]);
+	}
+
+	string _s = string(s);
+	delete s;
+	return _s;*/
+	return GetID((SensorId*) addr);
+}
+
+
 void SensorUpdate(SensorId* id) {
 	Sensor* sensor = sensorMap[*id];
 	if(sensor==NULL) {

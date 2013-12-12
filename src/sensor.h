@@ -23,4 +23,7 @@ void SensorUpdate(SensorId* addr);
 
 bool operator<(const SensorId& left, const SensorId& right);
 
+string GetID(SensorId* id);
+string GetXBeeID(XBeeAddress* addr);
+
 #endif
