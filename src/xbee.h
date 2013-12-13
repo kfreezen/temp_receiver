@@ -278,7 +278,7 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
 void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
 
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength);
-int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int dataLength, XBeeCommStruct* comm = NULL);
+int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int dataLength, XBeeCommStruct* comm = NULL);
 
 
 void XBee_RegisterCommRequest(XBeeCommRequest request);
