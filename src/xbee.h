@@ -37,7 +37,9 @@ bool operator<(const XBeeAddress& left, const XBeeAddress& right);
 typedef struct __XBeeCommStruct XBeeCommStruct;
 union __Frame;
 
-typedef int (*XBeeHandleCallback)(XBeeCommStruct* commStruct);
+class XBeeCommunicator;
+
+typedef int (*XBeeHandleCallback)(XBeeCommunicator* comm, XBeeCommStruct* commStruct);
 
 struct __XBeeCommStruct {
 	XBeeHandleCallback callback;
@@ -276,7 +278,7 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
 void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
 
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength);
-int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid, XBeeCommStruct* comm = NULL);
+int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int dataLength, XBeeCommStruct* comm = NULL);
 
 
 void XBee_RegisterCommRequest(XBeeCommRequest request);

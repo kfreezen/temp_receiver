@@ -22,6 +22,7 @@ using std::bitset;
 using std::deque;
 
 const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
+XBeeCommunicator* XBeeCommunicator::defaultComm = NULL;
 
 void XBeeCommunicator::initDefault(SerialPort* port) {
 	XBeeCommunicator::defaultComm = new XBeeCommunicator(port);
@@ -119,11 +120,11 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		*/
 		int cbRet = 0;
 		if(commStruct->callback) {
-			cbRet = commStruct->callback(commStruct);
+			cbRet = commStruct->callback(comm, commStruct);
 		}
 
 		if(cbRet == 0) {
-			cbRet = XBAPI_HandleFrameCallback(commStruct);
+			cbRet = XBAPI_HandleFrameCallback(comm, commStruct);
 		}
 	}
 }
@@ -155,7 +156,7 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 				case COMM_COMMAND: {
 					unsigned short dest = *((unsigned short*)(&request.destination));
 
-					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, commId, (request.data==NULL || request.dataLength == 0) ? 0 : 1, &comm->xbeeComms[commId-1]);
+					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
 				} break;
 
 				case COMM_TRANSMIT:
@@ -544,7 +545,7 @@ int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data
 	comm->registerRequest(request);
 }
 
-int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid) {
+int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int length, XBeeCommunicator) {
     #ifdef XBEE_COMM_WORKING
     fprintf(__stdout_log, "XBAPI Command being issued.\n");
     #endif
