@@ -22,6 +22,7 @@ using std::bitset;
 using std::deque;
 
 const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
+XBeeCommunicator* XBeeCommunicator::defaultComm = NULL;
 
 void XBeeCommunicator::initDefault(SerialPort* port) {
 	XBeeCommunicator::defaultComm = new XBeeCommunicator(port);
@@ -119,11 +120,11 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		*/
 		int cbRet = 0;
 		if(commStruct->callback) {
-			cbRet = commStruct->callback(commStruct);
+			cbRet = commStruct->callback(comm, commStruct);
 		}
 
 		if(cbRet == 0) {
-			cbRet = XBAPI_HandleFrameCallback(commStruct);
+			cbRet = XBAPI_HandleFrameCallback(comm, commStruct);
 		}
 	}
 }
@@ -155,7 +156,7 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 				case COMM_COMMAND: {
 					unsigned short dest = *((unsigned short*)(&request.destination));
 
-					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, commId, (request.data==NULL || request.dataLength == 0) ? 0 : 1, &comm->xbeeComms[commId-1]);
+					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
 				} break;
 
 				case COMM_TRANSMIT:
@@ -537,14 +538,14 @@ int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data
 	XBeeCommRequest request;
 	request.callback = NULL;
 	request.commType = COMM_COMMAND;
-	request.destination = (void*) command;
+	request.destination = (void*) (unsigned) command;
 	request.data = (void*) data;
 	request.dataLength = dataLength;
 
 	comm->registerRequest(request);
 }
 
-int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid) {
+int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int length, int id, XBeeCommStruct* comm) {
     #ifdef XBEE_COMM_WORKING
     fprintf(__stdout_log, "XBAPI Command being issued.\n");
     #endif
@@ -563,7 +564,8 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     
     Frame apiFrame;
     
-    byte atCmdLength = (data_valid) ? sizeof(ATCmdFrame) : sizeof(ATCmdFrame_NoData);
+    // This bad.  We trust length to be one we can handle.  FIXME
+	int atCmdLength = length;
 
     apiFrame.atCmd.start_delimiter = 0x7e;
     apiFrame.atCmd.length[0] = (atCmdLength-4) >> 8;
@@ -576,7 +578,7 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     byte calc_checksum = checksum(apiFrame.buffer+3, atCmdLength-4);
     byte check = doChecksumVerify(apiFrame.buffer+3, atCmdLength-4, calc_checksum);
     
-    if(data_valid) {
+    if(length != 0) {
         apiFrame.atCmd.checksum = calc_checksum;
     } else {
         apiFrame.atCmdNoData.checksum = calc_checksum;
