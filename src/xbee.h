@@ -1,6 +1,12 @@
 #ifndef XBEE_H
 #define XBEE_H
 
+#include <deque>
+
+#include "packets.h"
+#include "globaldef.h"
+#include "serial.h"
+
 #define API_AT_CMD_FRAME 0x8
 #define API_TRANSMIT_FRAME 0x10
 
@@ -9,14 +15,95 @@
 #define API_TRANSMIT_STATUS 0x8B
 #define API_RX_INDICATOR 0x90
 
+#define COMM_COMMAND API_AT_CMD_FRAME
+#define COMM_TRANSMIT API_TRANSMIT_FRAME
+
 #define API_CMD_ATSL 0x4C53
 #define API_CMD_ATSH 0x4853
 
-#include "packets.h"
-#include "globaldef.h"
-#include "serial.h"
+#define TRANSMIT_SUCCESS 0x00
+#define MAC_ACK_FAIL 0x01
+#define NETWORK_ACK_FAIL 0x02
+#define ROUTE_NOT_FOUND 0x25
+#define PAYLOAD_TOO_LARGE 0x74
+#define INDIRECT_MSG_UNREQUESTED 0x75
+
+using namespace std;
 
 bool operator<(const XBeeAddress& left, const XBeeAddress& right);
+
+// Returns 1 if handled, 0 if not handled, -1 if error.
+
+typedef struct __XBeeCommStruct XBeeCommStruct;
+union __Frame;
+
+typedef int (*XBeeHandleCallback)(XBeeCommStruct* commStruct);
+
+struct __XBeeCommStruct {
+	XBeeHandleCallback callback;
+	union __Frame* origFrame;
+	union __Frame* replyFrame;
+	int retries;
+};
+
+typedef struct {
+	XBeeHandleCallback callback; // the handler will use this to do the lower-level work of handling, and determining what to do after a failure.
+
+	int commType; // uses the API definitions for frame types.
+	
+	void* destination; // Meaning varies depending on commType
+	void* data; // Is interpreted multiple ways, based on the communication type.  NULL means no data.
+	int dataLength; // Length of the data.  0 means no data.
+} XBeeCommRequest;
+
+class XBeeCommunicator {
+public:
+	const static int MAX_CONCURRENT_COMMS;
+
+	XBeeCommunicator(SerialPort* port);
+	~XBeeCommunicator();
+
+	// Starts dispatcher thread.
+	void startDispatch();
+
+	void startHandler();
+
+	void registerRequest(XBeeCommRequest request);
+
+	void retry(XBeeCommStruct* commStruct);
+
+	void freeCommStruct(int id);
+
+	SerialPort* getSerialPort() {
+		return this->serialPort;
+	}
+
+	static void initDefault(SerialPort* port);
+	static XBeeCommunicator* getDefault() {
+		return XBeeCommunicator::defaultComm;
+	}
+private:
+	static XBeeCommunicator* defaultComm;
+
+	vector<bool>* xbeeCommBits;
+	XBeeCommStruct* xbeeComms;
+
+	deque<XBeeCommRequest> dispatchQueue;
+	
+	pthread_t dispatchThread;
+	pthread_mutex_t dispatchThreadMutex;
+	pthread_cond_t dispatchThreadCondition;
+
+	pthread_t handlerThread;
+	pthread_mutex_t handlerThreadMutex;
+	pthread_cond_t handlerThreadCondition;
+
+	SerialPort* serialPort;
+
+	// These two are called by C functions (pthread), so they need to be static class methods.
+	static void* dispatcher(XBeeCommunicator* comm);
+	static void* handler(XBeeCommunicator* comm);
+};
 
 typedef struct __XBeeAddress_7Bytes XBeeAddress_7Bytes;
 
@@ -186,7 +273,25 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int length, int expected);
 
 unsigned char checksum(void* addr, int length);
 unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char checksum);
-void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length);
-int XBAPI_Command(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid);
+void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
+
+int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength);
+int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int data_valid, XBeeCommStruct* comm = NULL);
+
+
+void XBee_RegisterCommRequest(XBeeCommRequest request);
+
+bool XBAPI_ReadFrame(SerialPort* port, Frame* frame);
+
+int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct);
+
+// We want to take references to XBAPI_HandleFrame and XBAPI_HandleFrameEx out of external code.
+// because we want the code to take better care of itself.  It should use callbacks instead of freezing
+// for transmit statuses, etc.
+
+#ifndef XBEE_CPP
+#pragma GCC poison XBAPI_HandleFrame
+#pragma GCC poison XBAPI_HandleFrameEx
+#endif
 
 #endif

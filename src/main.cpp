@@ -111,6 +111,7 @@ extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 0
 
+// URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
 	__stdout_log = stdout;
 	setvbuf(__stdout_log, NULL, _IONBF, 0);
@@ -197,6 +198,11 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	XBeeCommunicator::initDefault(port);
+	XBeeCommunicator* comm = XBeeCommunicator::getDefault();
+	comm->startDispatch();
+	comm->startHandler();
+
 	fprintf(__stdout_log, "We are go\n");
 
 	pthread_t thread;
@@ -206,8 +212,8 @@ int main(int argc, char** argv) {
 
 	// Get our Xbee ID.
 	unsigned* buffer = new unsigned[16];
-	XBAPI_Command(port, API_CMD_ATSL, &buffer[1], 1, 0);
-	XBAPI_Command(port, API_CMD_ATSH, &buffer[0], 1, 0);
+	XBAPI_Command(comm, API_CMD_ATSL, &buffer[1], sizeof(unsigned));
+	XBAPI_Command(comm, API_CMD_ATSH, &buffer[0], sizeof(unsigned));
 	buffer[0] = swap_endian_32(buffer[0]);
 	buffer[1] = swap_endian_32(buffer[1]);
 	
@@ -219,7 +225,7 @@ int main(int argc, char** argv) {
 
 	while(1) {
 		fflush(__stdout_log);
-		XBAPI_HandleFrame(port, 0);
+		//XBAPI_HandleFrame(port, 0);
 	
 		//fprintf(__stdout_log, "while()\n");
 		//port->read(buffer, 4);

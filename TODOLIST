@@ -1,13 +1,18 @@
-src/sensor.cpp:13:extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
-src/SensorDB.cpp:23:	// TODO Auto-generated constructor stub
-src/SensorDB.cpp:28:	// TODO Auto-generated destructor stub
-src/main.cpp:184:	// TODO:  Add sensor config loading code here.
-src/xbee.cpp:63:    apiFrame.tx.frame_id = 1; // TODO:  Add id param and frame handling.
-src/xbee.cpp:89:		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
-src/xbee.cpp:240:			// TODO:  Finish.
-src/xbee.cpp:296:    // TODO:  Add checksum verification and a way to discard bytes that aren't in a frame.
 src/logger.cpp:47:	// TODO:  Implement.
 src/logger.cpp:51:	// TODO:  Implement.
-src/packets.cpp:40:    // TODO:  Implement CRC16 generation.
-src/packets.cpp:53:	// TODO:  Get CRC16 code from MPLAB X.
-src/packets.cpp:64:				AddSensor(&xbee_addr); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
+src/main.cpp:205:	// TODO:  Add sensor config loading code here.
+src/packets.cpp:121:				AddSensor(&xbee_addr); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
+src/packets.cpp:332:				AddSensor(&tempId); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
+src/sensor.cpp:13:extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
+src/SensorDB.cpp:30:	// TODO Auto-generated constructor stub
+src/SensorDB.cpp:35:	// TODO Auto-generated destructor stub
+src/serial.h:30:// TODO:  Add baud rate changing code.
+src/xbee.cpp:238:	apiFrame.tx.rev0.frame_id = id; // TODO:  Add id param and frame handling.
+src/xbee.cpp:245:	// TODO:  We should truncate this depending on length, instead of having just one fixed length.
+src/xbee.cpp:277:		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
+src/xbee.cpp:300:			// XXX May not be the cleanest way to do this.
+src/xbee.cpp:373:			// TODO:  We need to change this handle packet function to go through the XBeeCommunicator*
+src/xbee.cpp:420:			// TODO:  Add retry code.
+src/xbee.cpp:428:			// TODO:  Add more status handlers.
+src/xbee.cpp:515:			// TODO:  Finish.
+src/xbee.cpp:576:    // TODO:  Add checksum verification and a way to discard bytes that aren't in a frame.
