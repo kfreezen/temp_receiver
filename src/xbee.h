@@ -9,7 +9,7 @@
 #include "globaldef.h"
 #include "serial.h"
 
-#define XBEE_COMM_WORKING_TEST
+//#define XBEE_COMM_WORKING_TEST
 
 #define API_AT_CMD_FRAME 0x8
 #define API_TRANSMIT_FRAME 0x10

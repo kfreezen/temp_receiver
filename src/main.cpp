@@ -118,17 +118,23 @@ int main(int argc, char** argv) {
 	__stdout_log = stdout;
 	setvbuf(__stdout_log, NULL, _IONBF, 0);
 	
+	int enableDaemon = ENABLE_DAEMON;
+
 	argc--;
 	argv++;
 	for(int i=0; i < argc; i++) {
 		if(!strcmp(argv[i], "tests")) {
 			exit(tests());
+		} else if(!strcmp(argv[i], "--daemon")) {
+			enableDaemon = 1;
+		} else if(!strcmp(argv[i], "--no-daemon")) {
+			enableDaemon = 0;
 		}
 	}
 
-#if ENABLE_DAEMON == 1
-	__stdout_log = fopen("stdout_log.log", "w+");
-#endif
+	if(enableDaemon == 1) {
+		__stdout_log = fopen("stdout_log.log", "w+");
+	}
 
 	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
 
@@ -136,55 +142,56 @@ int main(int argc, char** argv) {
 	pid_t process_id = 0;
 	pid_t sid = 0;
 
-#if ENABLE_DAEMON == 1
-	fclose(__stdout_log);
+	if(enableDaemon == 1) {
+		fclose(__stdout_log);
 	
-	// forking!
-	process_id = fork();
+		// forking!
+		process_id = fork();
 
-	if(process_id < 0) {
-		printf("Creation of daemon failed.\n");
-		exit(1);
-	}
+		if(process_id < 0) {
+			printf("Creation of daemon failed.\n");
+			exit(1);
+		}
 
-	if(process_id > 0) {
-		printf("Child process PID = %d\n", process_id);
-		exit(0);
-	} else {
-		//fclose(__stdout_log);
+		if(process_id > 0) {
+			printf("Child process PID = %d\n", process_id);
+			exit(0);
+		} else {
+			//fclose(__stdout_log);
+		}
+		umask(0);
+		// done forking!
 	}
-	umask(0);
-	// done forking!
-#endif
 
 	__stdout_log = fopen("stdout_log.log", "a+");
 	setvbuf(__stdout_log, NULL, _IONBF, 0);
-
-#if ENABLE_DAEMON == 1
-	sid = setsid();
-	if(sid < 0) {
-		fprintf(__stdout_log, "Failed getting session ID.\n");
-		exit(1);
+	if(enableDaemon == 1) {
+		sid = setsid();
+		if(sid < 0) {
+			fprintf(__stdout_log, "Failed getting session ID.\n");
+			exit(1);
+		}
 	}
-#endif
 
 	// Take care of logging the signals at least before we crash.	
 	init_sig_handlers();
 	
+	FILE *fp, *errfp;
+
 	// Now let's redirect stdout to a file called "receiver_stdout"
-#if ENABLE_DAEMON == 1
-	FILE* fp = freopen("/tmp/temp_receiver_stdout", "a+", stdout);
-	FILE* errfp = freopen("/tmp/temp_receiver_stderr", "a+", stderr);
-#else
-	__stdout_log = stdout;
-#endif
+	if(enableDaemon == 1) {
+		fp = freopen("/tmp/temp_receiver_stdout", "a+", stdout);
+		errfp = freopen("/tmp/temp_receiver_stderr", "a+", stderr);
+	} else {
+		__stdout_log = stdout;
+	}
 
 	// Now since the above line didn't work for some reason...
-#if ENABLE_DAEMON == 1
-	if(fp == NULL) {
-		fprintf(__stdout_log, "Failure redirecting stdout.\n");
+	if(enableDaemon == 1) {
+		if(fp == NULL) {
+			fprintf(__stdout_log, "Failure redirecting stdout.\n");
+		}
 	}
-#endif
 
 	// Load our settings.
 	loadSettings("receiver_settings");

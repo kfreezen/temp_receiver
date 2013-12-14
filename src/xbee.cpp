@@ -13,11 +13,13 @@
 
 #define START_DELIMITER 0x7e
 
-#define XBEE_DEBUG
+//#define XBEE_DEBUG
 
 extern FILE* __stdout_log;
 
 //extern void HandlePacket(SerialPort* port, Frame* apiFrame);
+
+extern void hexdump(void* ptr, int len);
 
 using std::bitset;
 
@@ -191,10 +193,6 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 
 	return !(bytesRead < length);
 }
-
-#ifdef XBEE_DEBUG
-extern void hexdump(void* ptr, int len);
-#endif
 
 uint32 swap_endian_32(uint32 n) {
     uint32 r = 0;
