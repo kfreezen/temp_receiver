@@ -27,6 +27,8 @@ struct __XBeeCommStruct {
 	int replyDataLength;
 
 	int retries;
+	
+	int id;
 	int finished, waiting;
 };
 

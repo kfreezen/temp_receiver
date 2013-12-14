@@ -164,6 +164,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 			// a stub one.
 			commStruct = new XBeeCommStruct;
 			commStruct->callback = NULL;
+			commStruct->id = 0;
 		}
 		
 		// Give it its reply frame.
@@ -190,7 +191,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		}
 
 		// If there is no one waiting, then free the structure
-		if(cbRet == 1 && commStruct->waiting == 0) {
+		if(cbRet == 1 && commStruct->waiting == 0 && commStruct->id != 0) {
 			comm->freeCommStruct(commStruct->origFrame->rx.rev0.frame_id);
 		}
 	}
@@ -221,7 +222,8 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 			fprintf(__stdout_log, "request.callback=%p\n", request.callback);
 
 			comm->xbeeComms[commId-1].callback = request.callback;
-			
+			comm->xbeeComms[commId-1].id = commId;
+
 			switch(request.commType) {
 				case COMM_COMMAND: {
 					unsigned short dest = *((unsigned short*)(&request.destination));
