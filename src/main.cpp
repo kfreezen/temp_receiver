@@ -37,6 +37,9 @@ XBeeAddress receiver_addr;
 
 void sigterm_handler(int sig) {
 	fprintf(__stdout_log, "sigterm.  sig=%d, exiting...\n", sig);
+	
+	XBeeCommunicator::cleanupDefault();
+
 	exit(0);
 }
 
@@ -65,7 +68,6 @@ void init_sig_handlers() {
 }
 
 // END SIGNAL STUFF
-
 
 void* sensor_scanning_thread(void* p) {
 	SensorMap sensorMap = GetSensorMap();
@@ -211,11 +213,17 @@ int main(int argc, char** argv) {
 	// TODO:  Add sensor config loading code here.
 
 	// Get our Xbee ID.
-	unsigned* buffer = new unsigned[16];
-	XBAPI_Command(comm, API_CMD_ATSL, &buffer[1], sizeof(unsigned));
-	XBAPI_Command(comm, API_CMD_ATSH, &buffer[0], sizeof(unsigned));
-	buffer[0] = swap_endian_32(buffer[0]);
-	buffer[1] = swap_endian_32(buffer[1]);
+	unsigned* buffer = new unsigned[8];
+	int id0, id1;
+	id0 = XBAPI_Command(comm, API_CMD_ATSL, NULL, 0);
+	id1 = XBAPI_Command(comm, API_CMD_ATSH, NULL, 0);
+	comm->waitCommStruct(id0);
+	comm->waitCommStruct(id1);
+	XBeeCommStruct* commStruct0 = comm->getCommStruct(id0);
+	XBeeCommStruct* commStruct1 = comm->getCommStruct(id1);
+
+	buffer[1] = swap_endian_32(*((unsigned*)commStruct0->replyData));
+	buffer[0] = swap_endian_32(*((unsigned*)commStruct1->replyData));
 	
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	

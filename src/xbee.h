@@ -1,11 +1,15 @@
 #ifndef XBEE_H
 #define XBEE_H
 
+#include <ctime>
+
 #include <deque>
 
 #include "packets.h"
 #include "globaldef.h"
 #include "serial.h"
+
+#define XBEE_COMM_WORKING_TEST
 
 #define API_AT_CMD_FRAME 0x8
 #define API_TRANSMIT_FRAME 0x10
@@ -28,84 +32,13 @@
 #define PAYLOAD_TOO_LARGE 0x74
 #define INDIRECT_MSG_UNREQUESTED 0x75
 
+#include "XBeeCommunicator.h"
+
 using namespace std;
 
 bool operator<(const XBeeAddress& left, const XBeeAddress& right);
 
 // Returns 1 if handled, 0 if not handled, -1 if error.
-
-typedef struct __XBeeCommStruct XBeeCommStruct;
-union __Frame;
-
-class XBeeCommunicator;
-
-typedef int (*XBeeHandleCallback)(XBeeCommunicator* comm, XBeeCommStruct* commStruct);
-
-struct __XBeeCommStruct {
-	XBeeHandleCallback callback;
-	union __Frame* origFrame;
-	union __Frame* replyFrame;
-	int retries;
-};
-
-typedef struct {
-	XBeeHandleCallback callback; // the handler will use this to do the lower-level work of handling, and determining what to do after a failure.
-
-	int commType; // uses the API definitions for frame types.
-	
-	void* destination; // Meaning varies depending on commType
-	void* data; // Is interpreted multiple ways, based on the communication type.  NULL means no data.
-	int dataLength; // Length of the data.  0 means no data.
-} XBeeCommRequest;
-
-class XBeeCommunicator {
-public:
-	const static int MAX_CONCURRENT_COMMS;
-
-	XBeeCommunicator(SerialPort* port);
-	~XBeeCommunicator();
-
-	// Starts dispatcher thread.
-	void startDispatch();
-
-	void startHandler();
-
-	void registerRequest(XBeeCommRequest request);
-
-	void retry(XBeeCommStruct* commStruct);
-
-	void freeCommStruct(int id);
-
-	SerialPort* getSerialPort() {
-		return this->serialPort;
-	}
-
-	static void initDefault(SerialPort* port);
-	static XBeeCommunicator* getDefault() {
-		return XBeeCommunicator::defaultComm;
-	}
-private:
-	static XBeeCommunicator* defaultComm;
-
-	vector<bool>* xbeeCommBits;
-	XBeeCommStruct* xbeeComms;
-
-	deque<XBeeCommRequest> dispatchQueue;
-	
-	pthread_t dispatchThread;
-	pthread_mutex_t dispatchThreadMutex;
-	pthread_cond_t dispatchThreadCondition;
-
-	pthread_t handlerThread;
-	pthread_mutex_t handlerThreadMutex;
-	pthread_cond_t handlerThreadCondition;
-
-	SerialPort* serialPort;
-
-	// These two are called by C functions (pthread), so they need to be static class methods.
-	static void* dispatcher(XBeeCommunicator* comm);
-	static void* handler(XBeeCommunicator* comm);
-};
 
 typedef struct __XBeeAddress_7Bytes XBeeAddress_7Bytes;
 
@@ -275,7 +208,8 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int length, int expected);
 
 unsigned char checksum(void* addr, int length);
 unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char checksum);
-void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
+int XBAPI_Transmit(XBeeCommunicator* port, XBeeAddress* address, void* buffer, int length);
+void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
 
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength);
 int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int id, int dataLength, XBeeCommStruct* comm = NULL);

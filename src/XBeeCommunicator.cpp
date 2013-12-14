@@ -1,0 +1,258 @@
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include "xbee.h"
+#include "XBeeCommunicator.h"
+#include "util.h"
+
+extern FILE* __stdout_log;
+
+using std::deque;
+
+const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
+XBeeCommunicator* XBeeCommunicator::defaultComm = NULL;
+
+void XBeeCommunicator::initDefault(SerialPort* port) {
+	XBeeCommunicator::defaultComm = new XBeeCommunicator(port);
+}
+
+void XBeeCommunicator::cleanupDefault() {
+	delete XBeeCommunicator::defaultComm;
+}
+
+XBeeCommunicator::XBeeCommunicator(SerialPort* port) {
+	this->serialPort = port;
+	this->xbeeCommBits = new vector<bool>(XBeeCommunicator::MAX_CONCURRENT_COMMS);
+	this->xbeeComms = new XBeeCommStruct [MAX_CONCURRENT_COMMS + 1];
+	memset(this->xbeeComms, 0, sizeof(XBeeCommStruct) * (MAX_CONCURRENT_COMMS+1));
+}
+
+XBeeCommunicator::~XBeeCommunicator() {
+	// Figure out how to get that one thread to exit.
+}
+
+void XBeeCommunicator::startHandler() {
+	pthread_mutex_init(&this->handlerThreadMutex, NULL);
+	pthread_cond_init(&this->handlerThreadCondition, NULL);
+
+	int err = pthread_create(&this->handlerThread, NULL, (void*(*)(void*))XBeeCommunicator::handler, (void*) this);
+	
+	if(err) {
+		string errReason;
+		switch(err) {
+			case EAGAIN:
+				errReason = "EAGAIN:  Insufficient resources.";
+				break;
+			case EINVAL:
+				errReason = "EINVAL:  Invalid settings in attr.";
+				break;
+			case EPERM:
+				errReason = "EPERM:  No permision to allow settings specified in attr.";
+				break;
+		}
+
+		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
+	}
+}
+
+void XBeeCommunicator::startDispatch() {
+	pthread_mutex_init(&this->dispatchThreadMutex, NULL);
+	pthread_cond_init(&this->dispatchThreadCondition, NULL);
+
+	int err = pthread_create(&this->dispatchThread, NULL, (void*(*)(void*))XBeeCommunicator::dispatcher, (void*) this);
+
+	if(err) {
+		string errReason;
+		switch(err) {
+			case EAGAIN:
+				errReason = "EAGAIN:  Insufficient resources.";
+				break;
+			case EINVAL:
+				errReason = "EINVAL:  Invalid settings in attr.";
+				break;
+			case EPERM:
+				errReason = "EPERM:  No permision to allow settings specified in attr.";
+				break;
+		}
+
+		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
+	}
+
+	// Now created, or should be anyway.
+}
+
+void XBeeCommunicator::waitCommStruct(int id) {
+	int commIdInt = id - 1;
+	
+	this->xbeeComms[commIdInt].waiting++;
+
+	while(1) {
+		if(this->xbeeComms[commIdInt].finished == 1) {
+			this->xbeeComms[commIdInt].waiting--;
+			return;
+		} else {
+			struct timespec s;
+			s.tv_sec = 0;
+			s.tv_nsec = 1000000;
+			nanosleep(&s, NULL);
+		}
+	}
+}
+
+XBeeCommStruct* XBeeCommunicator::getCommStruct(int id) {
+	int commIdInt = id - 1;
+	if((*this->xbeeCommBits)[commIdInt] == true) {
+		return &this->xbeeComms[commIdInt];
+	} else {
+		return NULL;
+	}
+}
+
+void XBeeCommunicator::freeCommStruct(int id) {
+	(*this->xbeeCommBits)[id - 1] = false;
+}
+
+int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
+	int i;
+	for(i = 0; i < this->xbeeCommBits->size(); i++) {
+		if((*this->xbeeCommBits)[i] == false) {
+			(*this->xbeeCommBits)[i] = true;
+			break;
+		}
+	}
+
+	if(i==this->xbeeCommBits->size()) {
+		i = -1;
+	}
+	
+	this->xbeeComms[i].waiting = 0;
+
+	request.id = i + 1;
+
+	pthread_mutex_lock(&this->dispatchThreadMutex);
+	this->dispatchQueue.push_front(request);
+	
+#ifdef XBEE_COMM_WORKING_TEST
+	fprintf(__stdout_log, "Registering a request. %p\n", request.callback);
+#endif
+
+	pthread_cond_signal(&this->dispatchThreadCondition);
+	pthread_mutex_unlock(&this->dispatchThreadMutex);
+
+	return request.id;
+}
+
+void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
+	while(1) {
+		// Read frame in.
+		Frame* frame = new Frame;
+		memset(frame, 0, sizeof(Frame));
+
+		XBAPI_ReadFrame(comm->serialPort, frame);
+		
+		// Now, we need to determine which commStruct
+		// that this one replied to.
+		int commId = frame->txStatus.frame_id;
+		
+		XBeeCommStruct* commStruct;
+
+		if(commId > 0) {
+			commStruct = &comm->xbeeComms[commId-1];
+		} else {
+			// There are no valid commStructs for this, we should just create
+			// a stub one.
+			commStruct = new XBeeCommStruct;
+			commStruct->callback = NULL;
+		}
+		
+		// Give it its reply frame.
+		commStruct->replyFrame = frame;
+		
+		// Figure out which handler to call.
+		/* Do it in this fashion:
+			First call the user specified handler, if there is any.
+			If there is none, or the handler does not handle it,
+			handle it with the default handler.
+		*/
+		int cbRet = 0;
+		if(commStruct->callback) {
+			fprintf(__stdout_log, "callback=%p\n", commStruct->callback);
+			cbRet = commStruct->callback(comm, commStruct);
+		}
+
+		if(cbRet == 0) {
+			cbRet = XBAPI_HandleFrameCallback(comm, commStruct);
+		}
+
+		if(cbRet == 1) {
+			commStruct->finished = 1;
+		}
+
+		// If there is no one waiting, then free the structure
+		if(cbRet == 1 && commStruct->waiting == 0) {
+			comm->freeCommStruct(commStruct->origFrame->rx.rev0.frame_id);
+		}
+	}
+}
+
+const struct timespec MAX_DISPATCH_WAIT = {0, MAX_DISPATCH_WAIT_NS};
+
+void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
+	// We basically need an infinite loop that dispatches all requests.
+
+	while(1) {
+		while(!comm->dispatchQueue.empty()) {
+			fprintf(__stdout_log, "comm->dispatchQueue.size() = %d\n", comm->dispatchQueue.size());
+			pthread_mutex_lock(&comm->dispatchThreadMutex);
+			XBeeCommRequest request = comm->dispatchQueue.back();
+			comm->dispatchQueue.pop_back();
+			pthread_mutex_unlock(&comm->dispatchThreadMutex);
+
+			// Here we need to find a free comm slot.
+			int commId;
+
+			commId = request.id;
+			if(commId == 0) {
+				// Not a good solution.
+				continue;
+			}
+
+			fprintf(__stdout_log, "request.callback=%p\n", request.callback);
+
+			comm->xbeeComms[commId-1].callback = request.callback;
+			
+			switch(request.commType) {
+				case COMM_COMMAND: {
+					unsigned short dest = *((unsigned short*)(&request.destination));
+
+					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, request.dataLength, commId, &comm->xbeeComms[commId-1]);
+				} break;
+
+				case COMM_TRANSMIT:
+					XBAPI_TransmitInternal(comm->serialPort, (XBeeAddress*) request.destination, request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
+					break;
+			}
+		}
+
+		pthread_mutex_lock(&comm->dispatchThreadMutex);
+
+		struct timespec absTime = add_timespec(now(), MAX_DISPATCH_WAIT);
+		int condRet = pthread_cond_timedwait(&comm->dispatchThreadCondition, &comm->dispatchThreadMutex, &absTime);
+		pthread_mutex_unlock(&comm->dispatchThreadMutex);
+	}
+}
+
+void XBeeCommunicator::retry(XBeeCommStruct* commStruct) {
+	if(commStruct->replyFrame != NULL) {
+		delete commStruct->replyFrame;
+		commStruct->replyFrame = NULL;
+	}
+
+	int length = 0;
+	length |= (commStruct->origFrame->tx.rev0.length[0] << 8);
+	length |= (commStruct->origFrame->tx.rev0.length[1]);
+	commStruct->retries ++;
+	this->serialPort->write(commStruct->origFrame, length + 4);
+}
+

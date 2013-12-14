@@ -3,7 +3,6 @@
 #include "packets.h"
 #include "xbee.h"
 
-void HandlePacket(SerialPort* port, Frame* frame);
-
+void HandlePacket(XBeeCommunicator* comm, Frame* frame);
 
 #endif

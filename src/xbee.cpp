@@ -9,180 +9,17 @@
 #include "serial.h"
 #include "globaldef.h"
 #include "packet_defs.h"
+#include "util.h"
 
 #define START_DELIMITER 0x7e
 
-//#define XBEE_DEBUG
+#define XBEE_DEBUG
 
 extern FILE* __stdout_log;
 
 //extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
 using std::bitset;
-using std::deque;
-
-const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
-XBeeCommunicator* XBeeCommunicator::defaultComm = NULL;
-
-void XBeeCommunicator::initDefault(SerialPort* port) {
-	XBeeCommunicator::defaultComm = new XBeeCommunicator(port);
-}
-
-XBeeCommunicator::XBeeCommunicator(SerialPort* port) {
-	this->serialPort = port;
-	this->xbeeCommBits = new vector<bool>(XBeeCommunicator::MAX_CONCURRENT_COMMS);
-	this->xbeeComms = new XBeeCommStruct [MAX_CONCURRENT_COMMS + 1];
-	memset(this->xbeeComms, 0, sizeof(XBeeCommStruct) * (MAX_CONCURRENT_COMMS+1));
-}
-
-void XBeeCommunicator::startHandler() {
-	pthread_mutex_init(&this->handlerThreadMutex, NULL);
-	pthread_cond_init(&this->handlerThreadCondition, NULL);
-
-	int err = pthread_create(&this->handlerThread, NULL, (void*(*)(void*))XBeeCommunicator::handler, (void*) this);
-	
-	if(err) {
-		string errReason;
-		switch(err) {
-			case EAGAIN:
-				errReason = "EAGAIN:  Insufficient resources.";
-				break;
-			case EINVAL:
-				errReason = "EINVAL:  Invalid settings in attr.";
-				break;
-			case EPERM:
-				errReason = "EPERM:  No permision to allow settings specified in attr.";
-				break;
-		}
-
-		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
-	}
-}
-
-void XBeeCommunicator::startDispatch() {
-	pthread_mutex_init(&this->dispatchThreadMutex, NULL);
-	pthread_cond_init(&this->dispatchThreadCondition, NULL);
-
-	int err = pthread_create(&this->dispatchThread, NULL, (void*(*)(void*))XBeeCommunicator::dispatcher, (void*) this);
-
-	if(err) {
-		string errReason;
-		switch(err) {
-			case EAGAIN:
-				errReason = "EAGAIN:  Insufficient resources.";
-				break;
-			case EINVAL:
-				errReason = "EINVAL:  Invalid settings in attr.";
-				break;
-			case EPERM:
-				errReason = "EPERM:  No permision to allow settings specified in attr.";
-				break;
-		}
-
-		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
-	}
-
-	// Now created, or should be anyway.
-}
-
-void XBeeCommunicator::registerRequest(XBeeCommRequest request) {
-	
-	pthread_mutex_lock(&this->dispatchThreadMutex);
-	this->dispatchQueue.push_front(request);
-	pthread_cond_signal(&this->dispatchThreadCondition);
-	pthread_mutex_unlock(&this->dispatchThreadMutex);
-}
-
-void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
-	while(1) {
-		// Read frame in.
-		Frame* frame = new Frame;
-		memset(frame, 0, sizeof(Frame));
-
-		XBAPI_ReadFrame(comm->serialPort, frame);
-		
-		// Now, we need to determine which commStruct
-		// that this one replied to.
-		int commId = frame->txStatus.frame_id;
-		// Give it its reply frame.
-		comm->xbeeComms[commId-1].replyFrame = frame;
-		XBeeCommStruct* commStruct = &comm->xbeeComms[commId-1];
-
-		if(commStruct->callback == NULL) {
-			commStruct->callback = XBAPI_HandleFrameCallback;
-		}
-
-		// Figure out which handler to call.
-		/* Do it in this fashion:
-			First call the user specified handler, if there is any.
-			If there is none, or the handler does not handle it,
-			handle it with the default handler.
-		*/
-		int cbRet = 0;
-		if(commStruct->callback) {
-			cbRet = commStruct->callback(comm, commStruct);
-		}
-
-		if(cbRet == 0) {
-			cbRet = XBAPI_HandleFrameCallback(comm, commStruct);
-		}
-	}
-}
-
-void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
-	// We basically need an infinite loop that dispatches all requests.
-
-	while(1) {
-		while(!comm->dispatchQueue.empty()) {
-			XBeeCommRequest request = comm->dispatchQueue.back();
-			comm->dispatchQueue.pop_back();
-
-			// Here we need to find a free comm slot.
-			int commId;
-			int i;
-			for(i = 0; i < XBeeCommunicator::MAX_CONCURRENT_COMMS; i++) {
-				// Those convoluted dereference pointers make my head spin.
-				bool xbeeCommBit = (*comm->xbeeCommBits)[i];
-				if(xbeeCommBit == false) {
-					(*comm->xbeeCommBits)[i] = true;
-					break;
-				}
-			}
-
-			commId = i + 1;
-			comm->xbeeComms[commId-1].callback = request.callback;
-
-			switch(request.commType) {
-				case COMM_COMMAND: {
-					unsigned short dest = *((unsigned short*)(&request.destination));
-
-					XBAPI_CommandInternal(comm->serialPort, dest, (unsigned*) request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
-				} break;
-
-				case COMM_TRANSMIT:
-					XBAPI_Transmit(comm->serialPort, (XBeeAddress*) request.destination, request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
-					break;
-			}
-		}
-
-		pthread_mutex_lock(&comm->dispatchThreadMutex);
-		int condRet = pthread_cond_wait(&comm->dispatchThreadCondition, &comm->dispatchThreadMutex);
-		pthread_mutex_unlock(&comm->dispatchThreadMutex);
-	}
-}
-
-void XBeeCommunicator::retry(XBeeCommStruct* commStruct) {
-	if(commStruct->replyFrame != NULL) {
-		delete commStruct->replyFrame;
-		commStruct->replyFrame = NULL;
-	}
-
-	int length = 0;
-	length |= (commStruct->origFrame->tx.rev0.length[0] << 8);
-	length |= (commStruct->origFrame->tx.rev0.length[1]);
-	commStruct->retries ++;
-	this->serialPort->write(commStruct->origFrame, length + 4);
-}
 
 // This enables the map<...> to use the XBeeAddress as a key.
 bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
@@ -224,7 +61,18 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
     return check;
 }
 
-void XBAPI_Transmit(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* commStruct) {
+int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, int length) {
+	XBeeCommRequest request;
+	request.callback = NULL;
+	request.data = buffer;
+	request.dataLength = length;
+	request.commType = COMM_TRANSMIT;
+
+	return comm->registerRequest(request);
+
+}
+
+void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* commStruct) {
 	Frame apiFrame;
 	int size = 0;
 
@@ -358,12 +206,6 @@ uint32 swap_endian_32(uint32 n) {
     return r;
 }
 
-
-
-int XBAPI_HandleFrame(SerialPort* port, int expected) {
-	return XBAPI_HandleFrameEx(port, NULL, 0, expected);
-}
-
 int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct) {
 	int returnValue = 0;
 	
@@ -376,7 +218,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	switch(apiFrame->rx.rev0.frame_type) {
 		case API_RX_INDICATOR: {
 			// TODO:  We need to change this handle packet function to go through the XBeeCommunicator*
-			HandlePacket(comm->getSerialPort(), apiFrame);
+			HandlePacket(comm, apiFrame);
 			return 1;
 		}
 		
@@ -410,6 +252,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 				case 4:
 					*((unsigned*)data) = swap_endian_32(*((unsigned*)apiFrame->atCmdResponse.data_checksum));
+					fprintf(__stdout_log, "Got it.  data = %x\n", *((unsigned*)data));
 					break;
 					
 				default:
@@ -420,6 +263,9 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 			}
 			
+			commStruct->replyData = data;
+			commStruct->replyDataLength = 4;
+
 			returnValue = apiFrame->atCmdResponse.commandStatus;
 			
 			// TODO:  Add retry code.
@@ -442,98 +288,6 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	return 1;
 }
 
-int XBAPI_HandleFrameEx(SerialPort* port, void* data, int maxDataLength, int expected) {
-	int returnValue = 0;
-	
-	Frame apiFrame;
-	
-	memset(&apiFrame, 0, sizeof(Frame));
-	
-	int length = XBAPI_ReadFrame(port, &apiFrame);
-	
-	/*if(length > sizeof(Frame)) {
-		switch(expected) {
-			case API_RX_INDICATOR:
-				length = sizeof(RxFrame);
-				//break;
-			default:
-				// Here we catch all the packet for examination.
-				while(1) {
-					unsigned char c;
-					port->read(&c, 1);
-					
-					fprintf(__stdout_log, "%x ", c);
-					
-				}
-				break;
-		}
-	}*/
-	
-	//port->read(apiFrame.buffer+3, length);
-	
-	#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "Handling ... ");
-	#endif
-	
-	switch(apiFrame.rx.rev0.frame_type) {
-		case API_RX_INDICATOR: {
-			HandlePacket(port, &apiFrame);
-				
-		} break;
-		
-		case API_AT_CMD_RESPONSE: {
-			// First figure out the length of the data.
-			// length of data is difference between api frame's length field and the sizeof(AtCmdResponse_NoData)-4
-			int apiFrameLength = (apiFrame.rx.rev0.length[0] << 8) | apiFrame.rx.rev0.length[1];
-			int dataLength = apiFrameLength - (sizeof(ATCmdResponse_NoData) - 4);
-			// Now we take the data and put it into an unsigned int.
-			if(dataLength>maxDataLength) {
-				fprintf(__stdout_log, "dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
-				return -1;
-			}
-			
-			switch(dataLength) {
-				case 0:
-					break;
-				case 1:
-					*((unsigned char*)data) = apiFrame.atCmdResponse.data_checksum[0];
-					break;
-					
-				case 2:
-					*((unsigned char*)data+1) = apiFrame.atCmdResponse.data_checksum[0];
-					*((unsigned char*)data) = apiFrame.atCmdResponse.data_checksum[1];
-					break;
-				case 4:
-					*((unsigned*)data) = swap_endian_32(*((unsigned*)apiFrame.atCmdResponse.data_checksum));
-					break;
-					
-				default:
-					#ifdef XBEE_DEBUG
-					hexdump(&apiFrame, sizeof(ATCmdResponse));
-					#endif
-					
-					break;
-			}
-			
-			returnValue = apiFrame.atCmdResponse.commandStatus;
-			
-		} break;
-		
-		default: {
-			#ifdef XBEE_DEBUG
-			hexdump(&apiFrame, sizeof(apiFrame));
-			#endif
-			break;
-		}
-	}
-	
-	#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "Returned\n");
-	#endif
-	
-	return returnValue;
-}
-
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength) {
 	XBeeCommRequest request;
 	request.callback = NULL;
@@ -542,11 +296,15 @@ int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data
 	request.data = (void*) data;
 	request.dataLength = dataLength;
 
-	comm->registerRequest(request);
+#ifdef XBEE_COMM_WORKING_TEST
+	fprintf(__stdout_log, "XBAPI_Comand being sent.\n");
+#endif
+
+	return comm->registerRequest(request);
 }
 
 int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int length, int id, XBeeCommStruct* comm) {
-    #ifdef XBEE_COMM_WORKING
+    #ifdef XBEE_COMM_WORKING_TEST
     fprintf(__stdout_log, "XBAPI Command being issued.\n");
     #endif
 
@@ -565,7 +323,7 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     Frame apiFrame;
     
     // This bad.  We trust length to be one we can handle.  FIXME
-	int atCmdLength = length;
+	int atCmdLength = sizeof(apiFrame.atCmdNoData) + length;
 
     apiFrame.atCmd.start_delimiter = 0x7e;
     apiFrame.atCmd.length[0] = (atCmdLength-4) >> 8;
@@ -573,8 +331,13 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     apiFrame.atCmd.frame_type = API_AT_CMD_FRAME;
     apiFrame.atCmd.frame_id = id;
     apiFrame.atCmd.command = command;
-    apiFrame.atCmd.data = swap_endian_32(*data);
-   
+    
+	fprintf(__stdout_log, "command frame id = %x\n", id);
+
+	if(data) {
+		apiFrame.atCmd.data = swap_endian_32(*data);
+   	}
+
     byte calc_checksum = checksum(apiFrame.buffer+3, atCmdLength-4);
     byte check = doChecksumVerify(apiFrame.buffer+3, atCmdLength-4, calc_checksum);
     
@@ -583,14 +346,16 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     } else {
         apiFrame.atCmdNoData.checksum = calc_checksum;
     }
+	
+	hexdump(&apiFrame.atCmd, sizeof(apiFrame.atCmd));
 
     port->write(apiFrame.buffer, atCmdLength);
 
-    if(id) {
+    /*if(id) {
         return XBAPI_HandleFrameEx(port, data, 4, API_AT_CMD_RESPONSE);
     } else {
         return 0;
-    }
+    }*/ // the XBAPI_HandleFrame should be handled by the handler thread.
     
     // TODO:  Add checksum verification and a way to discard bytes that aren't in a frame.
 }

@@ -4,7 +4,7 @@ HDR:=$(shell find src -mindepth 1 -maxdepth 3 -name "*.h")
 SOURCES:=$(patsubst %.cpp, %.o, $(CPP_SRC))
 
 CXX:=g++
-CXXFLAGS:=-std=gnu++11
+CXXFLAGS:=-std=gnu++11 -g
 LDFLAGS:=`curl-config --libs` -pthread
 LD:=g++
 

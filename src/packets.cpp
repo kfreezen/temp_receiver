@@ -7,6 +7,7 @@
 #include "curl.h"
 #include "settings.h"
 #include "sensor.h"
+#include "XBeeCommunicator.h"
 
 #include <cstdio>
 #include <cmath>
@@ -29,14 +30,14 @@ extern void hexdump(void*, int);
 extern XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes);
 extern string GetXBeeID(XBeeAddress*);
 
-void HandlePacketRev0(SerialPort* port, Frame* apiFrame);
-void HandlePacketRev1(SerialPort* port, Frame* apiFrame);
+void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame);
+void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame);
 
 /**
 	HandlePacket callbacks do not need to do any verification, that is already done.
 	The only thing they need to do is parse the packet and reply if needed.
 **/
-typedef void (*HandlePacketCallback)(SerialPort*, Frame*);
+typedef void (*HandlePacketCallback)(XBeeCommunicator*, Frame*);
 
 typedef struct {
 	HandlePacketCallback handlePacketCallback;
@@ -51,7 +52,7 @@ HandlePacketCallbackStruct handlePacketCallbacks[] = {
 
 int handlePacketCallbacksLength = sizeof(handlePacketCallbacks) / sizeof(*handlePacketCallbacks);
 
-void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* packet, int id) {
+void SendPacket(XBeeCommunicator* comm, int revision, XBeeAddress* address, void* packet, int id) {
 	int size;
 	switch(revision) {
 		case REVISION_0:
@@ -63,10 +64,10 @@ void SendPacket(SerialPort* port, int revision, XBeeAddress* address, void* pack
 		break;
 	}
 
-	XBAPI_Transmit(port, address, packet, id, size);
+	XBAPI_Transmit(comm, address, packet, size);
 }
 
-void SendReceiverAddress(SerialPort* port, XBeeAddress* dest, int id) {
+void SendReceiverAddress(XBeeCommunicator* comm, XBeeAddress* dest, int id) {
 	fprintf(__stdout_log, "Warning:  SendReceiverAddress is deprecated.\n");
 
 	#ifdef PACKETS_DEBUG
@@ -83,10 +84,10 @@ void SendReceiverAddress(SerialPort* port, XBeeAddress* dest, int id) {
 	packet_buffer.header.revision = PROGRAM_REVISION;
 	packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(PacketRev0));
 
-	SendPacket(port, REVISION_0, dest, &packet_buffer, id);
+	SendPacket(comm, REVISION_0, dest, &packet_buffer, id);
 }
 
-void HandlePacket(SerialPort* port, Frame* apiFrame) {
+void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 	//fprintf(__stdout_log, "HELP US ALL!\n");
 
 	int revision = 0;
@@ -102,7 +103,7 @@ void HandlePacket(SerialPort* port, Frame* apiFrame) {
 		HandlePacketCallbackStruct* cb = &handlePacketCallbacks[i];
 		// This finds a HandlePacket for a specific revision.
 		if(revision >= cb->minRev && revision <= cb->maxRev) {
-			cb->handlePacketCallback(port, apiFrame);
+			cb->handlePacketCallback(comm, apiFrame);
 		}
 	}
 
@@ -183,7 +184,7 @@ uint64 swap_endian_64(uint64 u) {
 	return n0 | n1;
 }
 
-void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
+void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
 	#ifdef PACKETS_DEBUG_VERBOSE0
@@ -241,7 +242,7 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 			hexdump(reply, sizeof(PacketRev1));
 			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
 			
-			SendPacket(port, REVISION_1, &xbee_addr, reply, apiFrame->rx.rev0.frame_id);
+			SendPacket(comm, REVISION_1, &xbee_addr, reply, apiFrame->rx.rev0.frame_id);
 
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
@@ -318,7 +319,7 @@ void HandlePacketRev1(SerialPort* port, Frame* apiFrame) {
 	}
 }
 
-void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
+void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev0* packet = &apiFrame->rx.rev0.packet;
 	
 	#ifdef PACKETS_DEBUG_VERBOSE0
@@ -346,7 +347,7 @@ void HandlePacketRev0(SerialPort* port, Frame* apiFrame) {
 			XBeeAddress xbee_addr;
 			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
 
-			SendReceiverAddress(port, &xbee_addr, apiFrame->rx.rev0.frame_id);
+			SendReceiverAddress(comm, &xbee_addr, apiFrame->rx.rev0.frame_id);
 			
 			SensorId tempId;
 			tempId.uId = xbee_addr.uAddr;

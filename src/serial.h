@@ -29,8 +29,6 @@ class SerialPortException {
 		string what;
 };
 
-typedef void (*SerialDataHandler)(int length, byte* data);
-
 // TODO:  Add baud rate changing code.
 class SerialPort {
 	public:
