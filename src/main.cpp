@@ -112,6 +112,7 @@ XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes address_7bytes) {
 extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 0
+extern int xbeeDebug;
 
 // URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
@@ -129,6 +130,8 @@ int main(int argc, char** argv) {
 			enableDaemon = 1;
 		} else if(!strcmp(argv[i], "--no-daemon")) {
 			enableDaemon = 0;
+		} else if(!strcmp(argv[i], "--xbee-debug")) {
+			xbeeDebug = 1;
 		}
 	}
 

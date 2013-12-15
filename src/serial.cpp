@@ -108,6 +108,9 @@ void SerialPort::init(string port, int baud) {
 		exit(1);
 	}
 	
+	// Now flush it so we start fresh.
+	tcflush(SerialPort::portFileNo, TCIOFLUSH);
+
 	setCharTmo(1000000000 / baud);
 	mBaud = baud;
 }

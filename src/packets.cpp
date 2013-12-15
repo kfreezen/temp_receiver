@@ -63,6 +63,7 @@ void SendPacket(XBeeCommunicator* comm, int revision, XBeeAddress* address, void
 			size = sizeof(PacketRev1);
 		break;
 	}
+	
 
 	XBAPI_Transmit(comm, address, packet, size);
 }

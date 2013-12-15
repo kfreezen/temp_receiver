@@ -15,6 +15,8 @@
 
 //#define XBEE_DEBUG
 
+int xbeeDebug = 0;
+
 extern FILE* __stdout_log;
 
 //extern void HandlePacket(SerialPort* port, Frame* apiFrame);
@@ -66,6 +68,7 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
 int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, int length) {
 	XBeeCommRequest request;
 	request.callback = NULL;
+	request.destination = address;
 	request.data = buffer;
 	request.dataLength = length;
 	request.commType = COMM_TRANSMIT;
@@ -85,6 +88,15 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 		size = sizeof(TxFrameRev1);
 		fprintf(__stdout_log, "TxFrameRev1\n");
 	}
+
+	fprintf(__stdout_log, "sentaddress = ");
+	int i;
+	for(i=0; i < 8; i++) {
+		fprintf(__stdout_log, "%x ", address->addr[i]);
+	}
+
+	fprintf(__stdout_log, "\n");
+
 	// We can use .tx.rev0 in these option settings because these are unchanged over revisions due to the fact that they
 	// are part of the xbee's frames. 
 	apiFrame.tx.rev0.start_delimiter = 0x7e;
@@ -114,9 +126,9 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 	// The handler callbacks take care of this now.
 	//XBAPI_HandleFrame(port, API_TRANSMIT_STATUS);
 
-	#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "XBAPI_Transmit()\n");
-	#endif
+	if(xbeeDebug) {
+		fprintf(__stdout_log, "XBAPI_Transmit()\n");
+	}
 }
 
 #define READ_FRAME_NUM_RETRIES 2000
@@ -131,9 +143,10 @@ bool XBAPI_ReadFrame(SerialPort* port, Frame* frame) {
 		int bytesRead = port->read(&c, 1);
 		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
 		if(c == START_DELIMITER && bytesRead>0) {
-#ifdef XBEE_DEBUG
-			fprintf(__stdout_log, "Start delimiter found.\n");
-#endif
+			if(xbeeDebug) {
+				fprintf(__stdout_log, "Start delimiter found.\n");
+			}
+
 			frame->buffer[0] = c;
 			break;
 		}
@@ -147,9 +160,9 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		int bytesRead = port->read(&c, 1);
 		if(c == START_DELIMITER) {
 			// If c == START_DELIMITER we reset the length iterator.
-#ifdef XBEE_DEBUG
-			fprintf(__stdout_log, "Another start delimiter found.\n");
-#endif
+			if(xbeeDebug) {
+				fprintf(__stdout_log, "Another start delimiter found.\n");
+			}
 			
 			goto reset_for_loop; // The other way is to set i to -1, but I like using overflows to 0 in a loop less than I like using goto's.
 			// XXX May not be the cleanest way to do this.
@@ -162,34 +175,34 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	int length = (frame->rx.rev0.length[0] << 8) | frame->rx.rev0.length[1];
 	length += 1; // This is so that we include the checksum as well.
 
-#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.rev0.length[0], frame->rx.rev0.length[1]);
-#endif
+	if(xbeeDebug) {
+		fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.rev0.length[0], frame->rx.rev0.length[1]);
+	}
 
 	// Read in the rest of the stuff.
 	int bytesRead = port->read(frame->buffer+3, (length>sizeof(Frame)-3)?sizeof(Frame)-3:length); // That ()?: thingy is to prevent buffer overflows.
 
-#ifdef XBEE_DEBUG
-	if(bytesRead < length) {
-		FILE* dbg_out = fopen("debug_log.txt", "a");
-		if(dbg_out==NULL) {
-			fprintf(__stdout_log, "dbg_out ERROR.\n");
-		}
-		
-		for(i=0; i<sizeof(Frame); i++) {
-			fprintf(dbg_out, "%x ", frame->buffer[i]);
-			fprintf(__stdout_log, "%x ", frame->buffer[i]);
-		}
+	if(xbeeDebug) {
+		if(bytesRead < length) {
+			FILE* dbg_out = fopen("debug_log.txt", "a");
+			if(dbg_out==NULL) {
+				fprintf(__stdout_log, "dbg_out ERROR.\n");
+			}
+			
+			for(i=0; i<sizeof(Frame); i++) {
+				fprintf(dbg_out, "%x ", frame->buffer[i]);
+				fprintf(__stdout_log, "%x ", frame->buffer[i]);
+			}
 
-		fprintf(dbg_out, "\n");
-		fprintf(__stdout_log, "\n");
+			fprintf(dbg_out, "\n");
+			fprintf(__stdout_log, "\n");
 
-		fprintf(__stdout_log, "Timed out.\n");
-		fclose(dbg_out);
-	} else {
-		fprintf(__stdout_log, "Done with XBAPI_ReadFrame().\n");
+			fprintf(__stdout_log, "Timed out.\n");
+			fclose(dbg_out);
+		} else {
+			fprintf(__stdout_log, "Done with XBAPI_ReadFrame().\n");
+		}
 	}
-#endif
 
 	return !(bytesRead < length);
 }
@@ -209,9 +222,9 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	
 	Frame* apiFrame = commStruct->replyFrame;
 	
-	#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "Handling ... ");
-	#endif
+	if(xbeeDebug) {
+		fprintf(__stdout_log, "Handling ... ");
+	}
 
 	switch(apiFrame->rx.rev0.frame_type) {
 		case API_RX_INDICATOR: {
@@ -254,9 +267,9 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 					
 				default:
-					#ifdef XBEE_DEBUG
-					hexdump(&apiFrame, sizeof(ATCmdResponse));
-					#endif
+					if(xbeeDebug) {
+						hexdump(&apiFrame, sizeof(ATCmdResponse));
+					}
 					
 					break;
 			}
@@ -270,18 +283,27 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 			return 1;
 		} break;
 		
+		case API_TRANSMIT_STATUS: {
+			if(apiFrame->txStatus.delivery_status == 0x00) {
+				fprintf(__stdout_log, "Transmit was successful.\n");
+			} else {
+				fprintf(__stdout_log, "Transmit failed.  deliveryStatus=%x\n", apiFrame->txStatus.delivery_status);
+			}
+		} break;
+
 		default: {
-			#ifdef XBEE_DEBUG
-			hexdump(&apiFrame, sizeof(apiFrame));
-			#endif
+			if(xbeeDebug) {
+				hexdump(&apiFrame, sizeof(apiFrame));
+			}
+
 			// TODO:  Add more status handlers.
 			return 1;
 		}
 	}
 	
-	#ifdef XBEE_DEBUG
-	fprintf(__stdout_log, "Returned\n");
-	#endif
+	if(xbeeDebug) {
+		fprintf(__stdout_log, "Returned\n");
+	}
 	
 	return 1;
 }
