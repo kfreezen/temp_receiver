@@ -208,7 +208,7 @@ int XBAPI_HandleFrameEx(SerialPort* port, void* data, int length, int expected);
 
 unsigned char checksum(void* addr, int length);
 unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char checksum);
-int XBAPI_Transmit(XBeeCommunicator* port, XBeeAddress* address, void* buffer, int length);
+int XBAPI_Transmit(XBeeCommunicator* port, XBeeAddress* address, void* buffer, int length, int id=0);
 void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* comm = NULL);
 
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength);

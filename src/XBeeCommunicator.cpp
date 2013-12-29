@@ -114,8 +114,17 @@ void XBeeCommunicator::freeCommStruct(int id) {
 }
 
 int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
+	// If request.id is between 1 and 8 including, we need to find one that's functionally identical.
+	// (new request.id - 1) % 8 == (old request.id - 1) is the requirement.
+	
+	int i_init = 0, i_inc = 1;
+	if(request.id && request.id < 9) {
+		i_init = request.id - 1;
+		i_inc = 8;
+	}
+
 	int i;
-	for(i = 0; i < this->xbeeCommBits->size(); i++) {
+	for(i = i_init; i < this->xbeeCommBits->size(); i += i_inc) {
 		if((*this->xbeeCommBits)[i] == false) {
 			(*this->xbeeCommBits)[i] = true;
 			break;

@@ -130,7 +130,10 @@ bool SensorDB::AddNetwork(std::string net_id) {
 	sprintf(cPOST, "{\"network_id\": \"%s\"}", encodedNetworkId.c_str());
 	
 	CURLBuffer* data = curl.post(serverCallString, string(cPOST));
-	
+	if(data == NULL) {
+		return false;
+	}
+
 	bool retVal = false;
 
 	if(string(data->buffer) == "true") {
@@ -179,6 +182,9 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
 	
 	CURLBuffer* data = curl.post(serverCallString, string(cPOST), POST_JSON);
+	if(data == NULL) {
+		return false;
+	}
 
 	bool retVal;
 
@@ -204,7 +210,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 		vals[i] = nan("");
 	}
 
-	SensorDB::AddReport(sensor_id, timestamp, vals, 6.5);
+	return SensorDB::AddReport(sensor_id, timestamp, vals, 6.5);
 }
 
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeValues, double batteryLevel) {
@@ -256,7 +262,10 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		);
 
 	CURLBuffer* buf = curl.post(serverCallString, string(cPOST), POST_JSON);
-
+	if(buf == NULL) {
+		return false;
+	}
+	
 	if(string(buf->buffer) == "true") {
 		retVal = true;
 	} else if(string(buf->buffer) == "false") {

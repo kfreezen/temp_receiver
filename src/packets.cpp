@@ -221,13 +221,15 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				
 				if(buf == NULL) {
 					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
-					exit(1);
 				} else {
 					sensorId.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
 				}
 
 				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(sensorId.uId));
-				delete buf;
+				if(buf != NULL) {
+					delete buf;
+				}
+				
 				delete curl;
 			}
 
@@ -280,14 +282,16 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				CURLBuffer* buf = curl->get(url, "");
 				
 				if(buf == NULL) {
-					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
-					exit(1);
+					fprintf(__stdout_log, "warning:  Something went wrong.  buf should not be null.\n");
 				} else {
 					id.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
 				}
 
 				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(id.uId));
-				delete buf;
+
+				if(buf != NULL) {
+					delete buf;
+				}
 				delete curl;
 			}
 

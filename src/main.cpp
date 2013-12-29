@@ -113,6 +113,7 @@ extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 0
 extern int xbeeDebug;
+extern int noWeb;
 
 // URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
@@ -128,10 +129,12 @@ int main(int argc, char** argv) {
 			exit(tests());
 		} else if(!strcmp(argv[i], "--daemon")) {
 			enableDaemon = 1;
-		} else if(!strcmp(argv[i], "--no-daemon")) {
+		} else if(!strcmp(argv[i], "--no-daemon") || !strcmp(argv[i], "-nd")) {
 			enableDaemon = 0;
 		} else if(!strcmp(argv[i], "--xbee-debug")) {
 			xbeeDebug = 1;
+		} else if(!strcmp(argv[i], "--no-web") || !strcmp(argv[i], "-nw")) {
+			noWeb = 1;
 		}
 	}
 
@@ -167,7 +170,10 @@ int main(int argc, char** argv) {
 	}
 
 	__stdout_log = fopen("stdout_log.log", "a+");
-	setvbuf(__stdout_log, NULL, _IONBF, 0);
+	if(__stdout_log != NULL) {
+		setvbuf(__stdout_log, NULL, _IONBF, 0);
+	}
+	
 	if(enableDaemon == 1) {
 		sid = setsid();
 		if(sid < 0) {
@@ -231,7 +237,9 @@ int main(int argc, char** argv) {
 	comm->waitCommStruct(id1);
 	XBeeCommStruct* commStruct0 = comm->getCommStruct(id0);
 	XBeeCommStruct* commStruct1 = comm->getCommStruct(id1);
-
+	comm->freeCommStruct(id0);
+	comm->freeCommStruct(id1);
+	
 	buffer[1] = swap_endian_32(*((unsigned*)commStruct0->replyData));
 	buffer[0] = swap_endian_32(*((unsigned*)commStruct1->replyData));
 	
@@ -243,6 +251,7 @@ int main(int argc, char** argv) {
 
 	while(1) {
 		fflush(__stdout_log);
+		sleep(1);
 		//XBAPI_HandleFrame(port, 0);
 	
 		//fprintf(__stdout_log, "while()\n");

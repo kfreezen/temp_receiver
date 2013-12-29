@@ -7,6 +7,7 @@
 using namespace std;
 
 extern FILE* __stdout_log;
+int noWeb = 0;
 
 void CURLBuffer::init(int totalBytes) {
 	if(this->buffer != NULL) {
@@ -73,7 +74,13 @@ string SimpleCurl::escape(string toEscape) {
 	return escapedStringRet;
 }
 
+#define CURL_CONNECT_TIMEOUT 1000
+
 CURLBuffer* SimpleCurl::get(string url, string data) {
+	if(noWeb) {
+		return NULL;
+	}
+	
 	CURLBuffer* buf = new CURLBuffer;
 	string fullUrl = url;
 	fullUrl += "?";
@@ -82,6 +89,8 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, fullUrl.c_str());
+	curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
 
@@ -100,6 +109,10 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 }
 
 CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
+	if(noWeb) {
+		return NULL;
+	}
+
 	CURLBuffer* buf = new CURLBuffer;
 
 	char* postfields = new char[data.length()+1];
@@ -108,6 +121,8 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+
 	curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIELDS, (void*) postfields);
 
@@ -126,7 +141,7 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	bool retVal = false;
 
 	if(curl_easy_perform(this->curlHandle)) {
-		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
+		//fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
 		
 		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);

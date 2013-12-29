@@ -65,13 +65,14 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
     return check;
 }
 
-int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, int length) {
+int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, int length, int id) {
 	XBeeCommRequest request;
 	request.callback = NULL;
 	request.destination = address;
 	request.data = buffer;
 	request.dataLength = length;
 	request.commType = COMM_TRANSMIT;
+	request.id = id;
 
 	return comm->registerRequest(request);
 
@@ -89,7 +90,7 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 		fprintf(__stdout_log, "TxFrameRev1\n");
 	}
 
-	fprintf(__stdout_log, "sentaddress = ");
+	fprintf(__stdout_log, "id=%d, sentaddress = ", id);
 	int i;
 	for(i=0; i < 8; i++) {
 		fprintf(__stdout_log, "%x ", address->addr[i]);
