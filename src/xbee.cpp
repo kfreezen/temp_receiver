@@ -67,6 +67,9 @@ unsigned char doChecksumVerify(unsigned char* address, int length, unsigned char
 
 int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, int length, int id) {
 	XBeeCommRequest request;
+	
+	memset(&request, 0, sizeof(XBeeCommRequest));
+
 	request.callback = NULL;
 	request.destination = address;
 	request.data = buffer;
@@ -311,6 +314,9 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 
 int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data, int dataLength) {
 	XBeeCommRequest request;
+	
+	memset(&request, 0, sizeof(XBeeCommRequest));
+
 	request.callback = NULL;
 	request.commType = COMM_COMMAND;
 	request.destination = (void*) (unsigned) command;

@@ -31,6 +31,10 @@ char* log_buffer;
 
 XBeeAddress receiver_addr;
 
+int verbose = 0;
+
+extern int packetsDebug;
+
 // END GLOBALS
 
 // SIGNAL STUFF
@@ -131,11 +135,16 @@ int main(int argc, char** argv) {
 			enableDaemon = 1;
 		} else if(!strcmp(argv[i], "--no-daemon") || !strcmp(argv[i], "-nd")) {
 			enableDaemon = 0;
-		} else if(!strcmp(argv[i], "--xbee-debug")) {
+		} else if(!strcmp(argv[i], "--xbee-debug") || !strcmp(argv[i], "-dx")) {
 			xbeeDebug = 1;
 		} else if(!strcmp(argv[i], "--no-web") || !strcmp(argv[i], "-nw")) {
 			noWeb = 1;
+		} else if(!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose")) {
+			verbose = atoi(argv[++i]);
+		} else if(!strcmp(argv[i], "--packets-debug") || !strcmp(argv[i], "-dp")) {
+			packetsDebug = 1;
 		}
+
 	}
 
 	if(enableDaemon == 1) {

@@ -52,6 +52,9 @@ HandlePacketCallbackStruct handlePacketCallbacks[] = {
 
 int handlePacketCallbacksLength = sizeof(handlePacketCallbacks) / sizeof(*handlePacketCallbacks);
 
+int packetsDebug = 0;
+extern int verbose;
+
 void SendPacket(XBeeCommunicator* comm, int revision, XBeeAddress* address, void* packet, int id) {
 	int size;
 	switch(revision) {
@@ -188,9 +191,9 @@ uint64 swap_endian_64(uint64 u) {
 void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
-	#ifdef PACKETS_DEBUG_VERBOSE0
-	hexdump(apiFrame, sizeof(Frame));
-	#endif
+	if(packetsDebug && verbose >= 1) {
+		hexdump(apiFrame, sizeof(Frame));
+	}
 	
 	// Do our CRC16 compare here.
 	unsigned short crc16 = packet->header.crc16;
@@ -200,7 +203,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	
 	if(calc_crc16 != crc16) {
 		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
-		hexdump(packet, sizeof(PacketRev1));
+		//hexdump(packet, sizeof(PacketRev1));
 		return;
 	}
 
@@ -327,9 +330,9 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev0* packet = &apiFrame->rx.rev0.packet;
 	
-	#ifdef PACKETS_DEBUG_VERBOSE0
-	hexdump(apiFrame, sizeof(Frame));
-	#endif
+	if(packetsDebug && verbose >= 1) {
+		hexdump(apiFrame, sizeof(Frame));
+	}
 	
 	// Do our CRC16 compare here.
 	unsigned short crc16 = packet->header.crc16;
