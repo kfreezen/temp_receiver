@@ -101,18 +101,6 @@ void hexdump(void* ptr, int len) {
 	}
 }
 
-XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes address_7bytes) {
-	XBeeAddress address;
-
-	// Do transformation.
-	memset(&address, 0, sizeof(XBeeAddress));
-
-	// Copy it over.  Maybe we should have some special code in case the sizes change in the future or something.  Oh well, it's not like it's gonna change very soon.
-	memcpy(&address.addr[1], &address_7bytes, sizeof(XBeeAddress_7Bytes));
-
-	return address;
-}
-
 extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 0

@@ -210,7 +210,9 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_
 		vals[i] = nan("");
 	}
 
-	return SensorDB::AddReport(sensor_id, timestamp, vals, 6.5);
+	// battery level is set to be 0.0, so that the web server knows not
+	// to add this to a battery log.
+	return SensorDB::AddReport(sensor_id, timestamp, vals, 0.0);
 }
 
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeValues, double batteryLevel) {

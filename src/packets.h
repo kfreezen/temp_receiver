@@ -34,12 +34,6 @@ typedef union __XBeeAddress {
 	unsigned char addr[8];
 } XBeeAddress;
 
-struct __XBeeAddress_7Bytes {
-	unsigned char addr[7];
-} __attribute__((packed));
-
-typedef struct __XBeeAddress_7Bytes XBeeAddress_7Bytes;
-
 // This is an application-defined, arbitrary format.
 
 struct __PacketHeaderRev0 {
@@ -121,7 +115,7 @@ typedef union __PacketRev1 {
 				uint32 probeResistances[NUM_PROBES];
 				uint32 probeResistance25C;
 				uint16 probeBeta;
-				uint16 reserved0;
+				uint16 batteryLevel;
 				uint32 topResistorValue;
 				byte reserved1[8];
 			} tempReport;

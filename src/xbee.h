@@ -40,8 +40,6 @@ bool operator<(const XBeeAddress& left, const XBeeAddress& right);
 
 // Returns 1 if handled, 0 if not handled, -1 if error.
 
-typedef struct __XBeeAddress_7Bytes XBeeAddress_7Bytes;
-
 struct __ATCmdFrame {
     byte start_delimiter;
     byte length[2];
@@ -108,8 +106,7 @@ struct __RxFrameRev0 {
 	byte start_delimiter;
 	byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
 	byte frame_type;
-	byte frame_id;
-	XBeeAddress_7Bytes source_address;
+	XBeeAddress source_address;
 	unsigned short reserved; // Should equal 0xFEFF
 	byte receive_options;
 	PacketRev0 packet;
@@ -120,8 +117,7 @@ struct __RxFrameRev1 {
     byte start_delimiter;
 	byte length[2]; // Big-endian length of frame not counting first three bytes or checksum
 	byte frame_type;
-	byte frame_id;
-	XBeeAddress_7Bytes source_address;
+	XBeeAddress source_address;
 	unsigned short reserved; // Should equal 0xFEFF
 	byte receive_options;
 	PacketRev1 packet;

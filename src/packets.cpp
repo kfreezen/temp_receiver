@@ -27,7 +27,6 @@ using namespace std;
 extern FILE* __stdout_log;
 
 extern void hexdump(void*, int);
-extern XBeeAddress TransformTo8ByteAddress(XBeeAddress_7Bytes);
 extern string GetXBeeID(XBeeAddress*);
 
 void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame);
@@ -118,7 +117,7 @@ void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 			#endif
 			
 			XBeeAddress xbee_addr;
-			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
+			xbee_addr = apiFrame->rx.source_address; 
 
 			SendReceiverAddress(port, &xbee_addr);
 			
@@ -151,7 +150,7 @@ void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 			
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
 			XBeeAddress address;
-			address = TransformTo8ByteAddress(apiFrame->rx.source_address);
+			address = apiFrame->rx.source_address;
 			
 			#ifdef PACKET_DEBUG_VERBOSE0
 			LogEntry entry;
@@ -210,7 +209,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
 			XBeeAddress xbee_addr;
-			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
+			xbee_addr = apiFrame->rx.rev1.source_address;
 
 			SensorId sensorId = packet->header.sensorId;
 			long n = 0;
@@ -248,7 +247,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			hexdump(reply, sizeof(PacketRev1));
 			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
 			
-			SendPacket(comm, REVISION_1, &xbee_addr, reply, apiFrame->rx.rev0.frame_id);
+			SendPacket(comm, REVISION_1, &xbee_addr, reply, 0);
 
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
@@ -273,7 +272,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
 			XBeeAddress address;
 			SensorId id = packet->header.sensorId;
-			address = TransformTo8ByteAddress(apiFrame->rx.rev1.source_address);
+			address = apiFrame->rx.rev1.source_address;
 		
 
 			uint64 n = 0;
@@ -298,7 +297,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				delete curl;
 			}
 
-			#ifdef PACKET_DEBUG_VERBOSE0
+			/*#ifdef PACKET_DEBUG_VERBOSE0
 			LogEntry entry;
 			entry.resistance = packet->report.thermistorResistance;
 
@@ -307,8 +306,10 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
 
 			Logger_AddEntry(&entry, packet->header.command);
-			#endif
+			#endif*/
 			
+			double battLevel = packet->tempReport.batteryLevel;
+			battLevel /= 1000.0;
 			if(GetSensorMap()[id] == NULL) {
 				AddSensor(&id);
 			}
@@ -319,7 +320,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			
 			// Add report.
 			SensorDB db;	
-			db.AddReport(GetID(&id), time(NULL), probeTemps, 6.5);
+			db.AddReport(GetID(&id), time(NULL), probeTemps, battLevel);
 
 			hexdump(packet, sizeof(PacketRev1));
 
@@ -353,9 +354,9 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 			#endif
 			
 			XBeeAddress xbee_addr;
-			xbee_addr = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address); // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
+			xbee_addr = apiFrame->rx.rev0.source_address; // Because of some weird design oversight on the xbee engineer's part, I have to such things as this.
 
-			SendReceiverAddress(comm, &xbee_addr, apiFrame->rx.rev0.frame_id);
+			SendReceiverAddress(comm, &xbee_addr, 0);
 			
 			SensorId tempId;
 			tempId.uId = xbee_addr.uAddr;
@@ -390,7 +391,7 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
 			XBeeAddress address;
 			SensorId id;
-			address = TransformTo8ByteAddress(apiFrame->rx.rev0.source_address);
+			address = apiFrame->rx.rev0.source_address;
 			id.uId = address.uAddr;
 
 			#ifdef PACKET_DEBUG_VERBOSE0
