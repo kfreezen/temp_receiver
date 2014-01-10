@@ -133,4 +133,7 @@ typedef union __PacketRev1 {
     byte packet_data[48];
 } PacketRev1;
 
+// Flags
+#define PROBE_SIDE_INDICATOR (1<<0)
+
 #endif

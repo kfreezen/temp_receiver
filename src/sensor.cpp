@@ -11,6 +11,7 @@
 
 extern FILE* __stdout_log;
 extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
+extern string receiverId;
 
 using namespace std;
 
@@ -70,10 +71,10 @@ void AddSensor(SensorId* id) {
 	SensorDB db;
 
 	// Add the network if necessary.
-	db.AddNetwork(GetXBeeID(&receiver_addr));
+	db.AddNetwork(receiverId);
 	
 	// Add the sensor to the network DB.
-	db.AddSensor(GetXBeeID(&receiver_addr), GetID(id));
+	db.AddSensor(receiverId, GetID(id));
 
 	sensorMap[*id] = sensor;
 }

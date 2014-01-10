@@ -21,6 +21,8 @@
 #include "logger.h"
 #include "SensorDB.h"
 #include "sensor.h"
+#include "curl.h"
+#include "settings.h"
 
 using namespace std;
 
@@ -30,6 +32,7 @@ char* log_buffer;
 // I feel dirty using these globals, but alas, I'm too lazy to do anything else.
 
 XBeeAddress receiver_addr;
+string receiverId;
 
 int verbose = 0;
 
@@ -243,6 +246,46 @@ int main(int argc, char** argv) {
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	
 	delete buffer;
+
+	// Load our application receiver ID.
+	FILE* idFile = fopen("receiver.id", "r");
+	if(idFile == NULL) {
+		idFile = fopen("receiver.id", "w");
+
+		SimpleCurl* _curl = new SimpleCurl();
+		string url = Settings::get("server") + string("/api/getid");
+		CURLBuffer* buf = _curl->get(url, "");
+		
+		if(buf == NULL) {
+			fprintf(__stdout_log, "warning:  Something went wrong.  buf should not be null.\n");
+		} else {
+			fwrite(buf->buffer, 1, buf->length, idFile);
+			char _null = 0;
+			fwrite(&_null, 1, 1, idFile);
+		}
+
+		if(buf != NULL) {
+			delete buf;
+		}
+
+		delete _curl;
+	} else {
+		// Get length of file
+		fseek(idFile, 0, SEEK_END);
+		int end = ftell(idFile);
+		fseek(idFile, 0, SEEK_SET);
+		
+		char* buf = new char [end + 1];
+		
+		memset(buf, 0, end + 1);
+		
+		fread(buf, 1, end, idFile);
+		
+		receiverId = string(buf);
+		delete buf;
+	}
+
+	fclose(idFile);
 
 	fprintf(__stdout_log, "We are starting the loop\n");
 

@@ -138,6 +138,8 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 #define READ_FRAME_NUM_RETRIES 2000
 // Returns false if timeout after start delimiter found.
 bool XBAPI_ReadFrame(SerialPort* port, Frame* frame) {
+	memset(frame, 0, sizeof(Frame));
+	
 	unsigned char c = 0; // this byte is to check for two delimiter bytes.
 	
 	// Look for frame delimiter.
