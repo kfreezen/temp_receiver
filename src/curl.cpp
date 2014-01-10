@@ -89,15 +89,18 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, fullUrl.c_str());
-	curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
-
+	//curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+	// TODO:  Fix if timeout turns out to be problem.
+	
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
 
 	bool retVal = false;
+	
+	int err = curl_easy_perform(this->curlHandle);
 
-	if(curl_easy_perform(this->curlHandle)) {
-		fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
+	if(err) {
+		fprintf(__stdout_log, "Something went wrong.  err=%d, %s, %d\n", err, __FILE__, __LINE__);
 		
 		curl_easy_reset(this->curlHandle);
 		delete buf;

@@ -260,13 +260,14 @@ int main(int argc, char** argv) {
 			fprintf(__stdout_log, "warning:  Something went wrong.  buf should not be null.\n");
 		} else {
 			fprintf(__stdout_log, "%s\n", buf->buffer);
-			fwrite(buf->buffer, 1, buf->length, idFile);
+			fwrite(buf->buffer, 1, strlen(buf->buffer), idFile);
 			char _null = 0;
 			fwrite(&_null, 1, 1, idFile);
+			receiverId = string(buf->buffer);
 		}
-
+		
 		fprintf(__stdout_log, "server=%s", url.c_str());
-
+		
 		if(buf != NULL) {
 			delete buf;
 		}
