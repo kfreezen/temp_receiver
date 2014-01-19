@@ -106,7 +106,7 @@ void hexdump(void* ptr, int len) {
 
 extern unsigned swap_endian_32(unsigned n);
 
-#define ENABLE_DAEMON 0
+#define ENABLE_DAEMON 1
 extern int xbeeDebug;
 extern int noWeb;
 

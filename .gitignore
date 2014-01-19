@@ -5,3 +5,4 @@ stdout_log.log
 .*.swp
 .*.swo
 *.o
+receiver.id

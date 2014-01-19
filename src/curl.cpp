@@ -74,7 +74,7 @@ string SimpleCurl::escape(string toEscape) {
 	return escapedStringRet;
 }
 
-#define CURL_CONNECT_TIMEOUT 1000
+#define CURL_CONNECT_TIMEOUT 10000
 
 CURLBuffer* SimpleCurl::get(string url, string data) {
 	if(noWeb) {
@@ -89,7 +89,7 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, fullUrl.c_str());
-	//curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+	curl_easy_setopt(this->curlHandle, CURLOPT_CONNECTTIMEOUT_MS, CURL_CONNECT_TIMEOUT);
 	// TODO:  Fix if timeout turns out to be problem.
 	
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
@@ -124,7 +124,7 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, url.c_str());
-	curl_easy_setopt(this->curlHandle, CURLOPT_TIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+	curl_easy_setopt(this->curlHandle, CURLOPT_CONNECTTIMEOUT_MS, CURL_CONNECT_TIMEOUT);
 
 	curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIELDS, (void*) postfields);
