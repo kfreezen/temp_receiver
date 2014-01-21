@@ -42,8 +42,8 @@ extern int packetsDebug;
 
 // SIGNAL STUFF
 
-void sigterm_handler(int sig) {
-	fprintf(__stdout_log, "sigterm.  sig=%d, exiting...\n", sig);
+void sigterm_handler(int sig, siginfo_t* siginfo, void* context) {
+	fprintf(__stdout_log, "sigterm.  from %d, sig=%d, exiting...\n", siginfo->si_pid, sig);
 	
 	XBeeCommunicator::cleanupDefault();
 
@@ -69,8 +69,9 @@ void init_sig_handlers() {
 	
 	action.sa_sigaction = sigquit_action_handler;
 	sigaction(SIGQUIT, &action, NULL);
-
-	signal(SIGTERM, sigterm_handler);
+	
+	action.sa_sigaction = sigterm_handler;
+	sigaction(SIGTERM, &action, NULL);
 
 }
 
