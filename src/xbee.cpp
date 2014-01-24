@@ -72,7 +72,11 @@ int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, i
 
 	request.callback = NULL;
 	request.destination = address;
+	
 	request.data = buffer;
+	//request.data = new unsigned char [length];
+	//memcpy(request.data, buffer, length);
+
 	request.dataLength = length;
 	request.commType = COMM_TRANSMIT;
 	request.id = id;

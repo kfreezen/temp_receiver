@@ -209,12 +209,24 @@ int main(int argc, char** argv) {
 	// eventually
 	
 	SerialPort* port = NULL;
+	
+	int portRetries = 60;
+	while(1) {
+		try {
+			port = new SerialPort(9600);
+		} catch(SerialPortException e) {
+			// Didn't find a valid port, wait one second and try again.
+			if(--portRetries) {
+				sleep(1);
+			} else {
+				fprintf(__stdout_log, "We did not find a valid port.\n");
+				return 1;
+			}
+		}
 
-	try {
-		port = new SerialPort(9600);
-	} catch(SerialPortException e) {
-		fprintf(__stdout_log, "We did not find a valid port.\n");
-		return 1;
+		if(port != NULL) {
+			break;
+		}
 	}
 
 	XBeeCommunicator::initDefault(port);

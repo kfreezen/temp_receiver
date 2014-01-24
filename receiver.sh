@@ -1,3 +1,3 @@
 #!/bin/sh
 
-/home/root/receiver/receiver --daemon
+/home/root/receiver/receiver --no-daemon

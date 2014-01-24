@@ -8,6 +8,7 @@
 
 #define REQUEST_RECEIVER 0x04
 #define RECEIVER_ACK 0x04
+#define RANGE_TEST 0xFF
 
 #include "globaldef.h"
 #include "serial.h"

@@ -207,6 +207,30 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	}
 
 	switch(packet->header.command) {
+		case RANGE_TEST: {
+			XBeeAddress xbee_addr;
+			xbee_addr = apiFrame->rx.rev1.source_address;
+			
+			PacketRev1* reply = new PacketRev1;
+			memset(reply, 0, sizeof(PacketRev1));
+			reply->header.flags = 0;
+
+			// We set it to the packet header's revision, in case we ever support multiple
+			// revisions with one callback.
+			reply->header.revision = packet->header.revision;
+			reply->header.command = RANGE_TEST;
+			
+			// Doesn't matter because we're doing a range test anyway.
+			reply->header.sensorId.uId = 0;
+
+			hexdump(reply, sizeof(PacketRev1));
+			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
+			
+			SendPacket(comm, REVISION_1, &xbee_addr, reply, 0);
+			
+			// TODO:  Figure out if there is a leak here.  I think the xbee communicator takes care of stuff it gets, but I'm not sure.
+		} break;
+
 		case REQUEST_RECEIVER: {
 			XBeeAddress xbee_addr;
 			xbee_addr = apiFrame->rx.rev1.source_address;
