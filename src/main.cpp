@@ -23,6 +23,7 @@
 #include "sensor.h"
 #include "curl.h"
 #include "settings.h"
+#include "update.h"
 
 using namespace std;
 
@@ -228,6 +229,10 @@ int main(int argc, char** argv) {
 			break;
 		}
 	}
+
+	// Start our update checker.
+	pthread_t updateCheckerThread;
+	pthread_create(&updateCheckerThread, NULL, updateChecker, NULL);
 
 	XBeeCommunicator::initDefault(port);
 	XBeeCommunicator* comm = XBeeCommunicator::getDefault();

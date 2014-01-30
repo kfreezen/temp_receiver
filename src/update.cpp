@@ -42,6 +42,23 @@ void* updateChecker(void* arg) {
 		}
 
 		delete buf;
+
+		// Now, check the valid server
+		buf = curl.get(Settings::get("server") + "/receiver/valid_server", "");
+		if(string(buf->buffer) != Settings::get("server")) {
+			// Test our new server for validity.
+			CURLBuffer* result = curl.get(string(buf->buffer) + "/receiver/valid_server", "");
+			if(string(result->buffer) == string(buf->buffer)) {
+				// Matched
+				Settings::set("server", string(buf->buffer));
+				Settings::store();
+			}
+			
+			delete result;	
+		}
+
+		delete buf;
+
 		sleep(30*60); // 30 minutes.
 	}
 }

@@ -9,9 +9,13 @@ using namespace std;
 class Settings {
 public:
 	static void load(const string fileName);
+	static void store();
+
 	static string get(const string s);
+	static void set(const string key, const string value);
 private:
 	static map<string, string> settings;
+	static string loadedFileName;
 };
 
 #endif
