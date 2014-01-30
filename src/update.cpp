@@ -20,7 +20,7 @@ void* updateChecker(void* arg) {
 
 		stringstream ss;
 		ss.str(string(buf->buffer));
-		int myVersion, newVersion;
+		int myVersion = CURRENT_VERSION, newVersion;
 		ss>> newVersion;
 		versionFile>> myVersion;
 		if(newVersion > myVersion) {
