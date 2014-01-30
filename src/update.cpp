@@ -59,6 +59,9 @@ void* updateChecker(void* arg) {
 
 		delete buf;
 
-		sleep(30*60); // 30 minutes.
+		int sleepLeft = 30*60;
+		while(sleepLeft) {
+			sleepLeft = sleep(sleepLeft); // 30 minutes.
+		}
 	}
 }
