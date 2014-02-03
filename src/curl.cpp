@@ -30,8 +30,16 @@ void CURLBuffer::extend(int totalBytes) {
 	if(newLength < this->currentItr+totalBytes) {
 		newLength = this->length + totalBytes + 1;
 	}
+	
+	printf("a__");
+	try {
+		this->buffer = new char[newLength];
+	} catch(std::bad_alloc& ba) {
+		printf("Failed allocation\n");
+	}
 
-	this->buffer = new char[newLength];
+	printf("buffer=%p\n", this->buffer);
+
 	this->length = newLength;
 	memset(this->buffer, 0, newLength);
 
@@ -51,18 +59,27 @@ SimpleCurl::~SimpleCurl() {
 	}
 }
 
+int SimpleCurl::writeFileFunc(void* ptr, int size, int nmemb, FILE* stream) {
+	return fwrite(ptr, size, nmemb, stream);
+}
+
 int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) {
+	printf("starting _");
 	CURLBuffer* buf = (CURLBuffer*) userPointer;
 
 	if(buf->buffer == NULL) {
 		buf->init(size*nmemb);
 	} else if(buf->currentItr + size*nmemb > buf->length) {
+		printf("extend");
 		buf->extend(size*nmemb);
 	}
-
+	
+	printf("memcpy");
 	memcpy(buf->buffer + buf->currentItr, buffer, size*nmemb);
 
 	buf->currentItr += size * nmemb;
+	
+	printf("writeFunc\n");
 
 	return size*nmemb;
 }
@@ -75,6 +92,43 @@ string SimpleCurl::escape(string toEscape) {
 }
 
 #define CURL_CONNECT_TIMEOUT 10000
+
+void SimpleCurl::download(string url, string fileName) {
+	if(noWeb) {
+		return;
+	}
+	
+	string fullUrl = url;
+	fullUrl += "?";
+	fullUrl += data;
+	
+	FILE* stream = fopen(fileName.c_str(), "w");
+
+	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFileFunc);
+	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, stream);
+	curl_easy_setopt(this->curlHandle, CURLOPT_URL, fullUrl.c_str());
+	curl_easy_setopt(this->curlHandle, CURLOPT_CONNECTTIMEOUT_MS, CURL_CONNECT_TIMEOUT);
+	// TODO:  Fix if timeout turns out to be problem.
+	
+	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
+	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
+
+	bool retVal = false;
+	
+	int err = curl_easy_perform(this->curlHandle);
+
+	if(err) {
+		fprintf(__stdout_log, "Something went wrong.  err=%d, %s, %d\n", err, __FILE__, __LINE__);
+		
+		curl_easy_reset(this->curlHandle);
+
+		fclose(stream);
+	} else {
+		curl_easy_reset(this->curlHandle);
+		
+		fclose(stream);
+	}
+}
 
 CURLBuffer* SimpleCurl::get(string url, string data) {
 	if(noWeb) {

@@ -19,30 +19,20 @@ void* updateChecker(void* arg) {
 			continue;
 		}
 
-		// Now we need to check our version file.
-		ifstream versionFile;
-		versionFile.open("version");
-
 		stringstream ss;
 		ss.str(string(buf->buffer));
 		int myVersion = CURRENT_VERSION, newVersion;
 		ss>> newVersion;
-		versionFile>> myVersion;
+		
+		printf("check0\n");
 		if(newVersion > myVersion) {
 			stringstream url;
 			url.str("");
 			url << Settings::get("server") << "/receiver/receiver-" << newVersion << ".tar.gz";
-			// Get our archive.
-			CURLBuffer* archive = curl.get(url.str(), string(""));
-			if(archive == NULL) {
-				sleep(5);
-				continue;
-			}
+			printf("url=%s\n", url.str().c_str());
 
-			// Open "receiver-update.tar.gz" and write the data to it.
-			FILE* updateFile = fopen("receiver-update.tar.gz", "w");
-			fwrite(archive->buffer, sizeof(char), archive->length, updateFile);
-			fclose(updateFile);
+			// Get our archive.
+			curl.download(url.str(), string("receiver-latest.tar.gz"));
 
 			// Execute the update script.
 			system("sh update.sh &");

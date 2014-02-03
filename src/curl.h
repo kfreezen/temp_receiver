@@ -39,11 +39,14 @@ public:
 
 	CURLBuffer* post(string url, string data, int postType=POST_JSON);
 	CURLBuffer* get(string url, string data);
+	void download(string url, string fileName);
 
 	string escape(string toEscape);
 	
 private:
 	static int writeFunc(char* buffer, int size, int nmemb, void* userPointer);
+	static int writeFileFunc(void* ptr, int size, int nmemb, FILE* stream);
+
 	CURL* curlHandle;
 };
 #endif
