@@ -99,8 +99,6 @@ void* updateChecker(void* arg) {
 					}
 					
 					delete buf;
-				} else {
-					noCommand = 1;
 				}
 			}
 
