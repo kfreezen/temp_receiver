@@ -201,7 +201,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 
 		// If there is no one waiting, then free the structure
 		if(cbRet == 1 && commStruct->waiting == 0 && commStruct->id != 0) {
-			comm->freeCommStruct(commStruct->origFrame->rx.rev0.frame_id);
+			comm->freeCommStruct(commStruct->origFrame->txStatus.frame_id);
 		}
 	}
 }
