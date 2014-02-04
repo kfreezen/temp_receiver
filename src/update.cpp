@@ -71,31 +71,35 @@ void* updateChecker(void* arg) {
 		
 		int sleepLeft = 1800;
 		while(sleepLeft) {
-			// Check for command.
-			stringstream urlstr;
-			urlstr.str("");
-			urlstr << Settings::get("server") << "/api/network/" << receiverId << "/admin/command";
-			CURLBuffer* buf = curl.get(urlstr.str(), "");
-			
-			if(buf != NULL) {
-			
-				printf("Executing command\n");
-
-				stringstream bufss;
-				bufss.str(string(buf->buffer));
+			int noCommand = 0;
+			while(!noCommand) {// Check for command.
+				stringstream urlstr;
+				urlstr.str("");
+				urlstr << Settings::get("server") << "/api/network/" << receiverId << "/admin/command";
+				CURLBuffer* buf = curl.get(urlstr.str(), "");
 				
-				string cmdString, dataString;
-				getline(bufss, cmdString, ':');
-				getline(bufss, dataString);
-				if(cmdString == "reboot") {
-					system("reboot");
-				} else if(cmdString == "test") {
-					FILE* _test = fopen("testCmdSuccessful", "a+");
-					fprintf(_test, "Test cmd successfully received.\n");
-					fclose(_test);
-				}
+				if(buf != NULL) {
+				
+					printf("Executing command\n");
+
+					stringstream bufss;
+					bufss.str(string(buf->buffer));
 					
-				delete buf;
+					string cmdString, dataString;
+					getline(bufss, cmdString, ':');
+					getline(bufss, dataString);
+					if(cmdString == "reboot") {
+						system("reboot");
+					} else if(cmdString == "test") {
+						FILE* _test = fopen("testCmdSuccessful", "a+");
+						fprintf(_test, "Test cmd successfully received.\n");
+						fclose(_test);
+					} else if(cmdString == "none") {
+						noCommand = 1;
+					}
+					
+					delete buf;
+				}
 			}
 
 			sleepLeft = 300 - sleep(300); // 30 minutes.	
