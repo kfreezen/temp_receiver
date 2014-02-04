@@ -100,7 +100,7 @@ void SimpleCurl::download(string url, string fileName) {
 	
 	string fullUrl = url;
 	fullUrl += "?";
-	fullUrl += data;
+	//fullUrl += data;
 	
 	FILE* stream = fopen(fileName.c_str(), "w");
 

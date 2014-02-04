@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <unistd.h>
 
+extern string receiverId;
+
 int doUpdateCheckerQuit = 0;
 void* updateChecker(void* arg) {
 	while(!doUpdateCheckerQuit) {
@@ -37,7 +39,6 @@ void* updateChecker(void* arg) {
 			// Execute the update script.
 			system("sh update.sh &");
 			
-			delete archive;
 		}
 
 		delete buf;
@@ -70,7 +71,32 @@ void* updateChecker(void* arg) {
 		
 		int sleepLeft = 1800;
 		while(sleepLeft) {
-			sleepLeft = sleep(sleepLeft); // 30 minutes.
+			sleepLeft = 300 - sleep(300); // 30 minutes.
+			// Check for command.
+			stringstream urlstr;
+			urlstr.str("");
+			urlstr << "/api/network/" << receiverId << "/admin/command";
+			CURLBuffer* buf = curl.get(urlstr.str(), "");
+			
+			if(buf == NULL) {
+				continue;
+			}
+
+			stringstream bufss;
+			bufss.str(string(buf->buffer));
+			
+			string cmdString, dataString;
+			getline(bufss, cmdString, ':');
+			getline(bufss, dataString);
+			if(cmdString == "reboot") {
+				system("reboot");
+			} else if(cmdString == "test") {
+				FILE* _test = fopen("testCmdSuccessful", "a+");
+				fprintf(_test, "Test cmd successfully received.\n");
+				fclose(_test);
+			}
+			
+			delete buf;
 		}
 	}
 }
