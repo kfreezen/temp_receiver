@@ -71,32 +71,34 @@ void* updateChecker(void* arg) {
 		
 		int sleepLeft = 1800;
 		while(sleepLeft) {
-			sleepLeft = 300 - sleep(300); // 30 minutes.
 			// Check for command.
 			stringstream urlstr;
 			urlstr.str("");
-			urlstr << "/api/network/" << receiverId << "/admin/command";
+			urlstr << Settings::get("server") << "/api/network/" << receiverId << "/admin/command";
 			CURLBuffer* buf = curl.get(urlstr.str(), "");
 			
-			if(buf == NULL) {
-				continue;
+			if(buf != NULL) {
+			
+				printf("Executing command\n");
+
+				stringstream bufss;
+				bufss.str(string(buf->buffer));
+				
+				string cmdString, dataString;
+				getline(bufss, cmdString, ':');
+				getline(bufss, dataString);
+				if(cmdString == "reboot") {
+					system("reboot");
+				} else if(cmdString == "test") {
+					FILE* _test = fopen("testCmdSuccessful", "a+");
+					fprintf(_test, "Test cmd successfully received.\n");
+					fclose(_test);
+				}
+					
+				delete buf;
 			}
 
-			stringstream bufss;
-			bufss.str(string(buf->buffer));
-			
-			string cmdString, dataString;
-			getline(bufss, cmdString, ':');
-			getline(bufss, dataString);
-			if(cmdString == "reboot") {
-				system("reboot");
-			} else if(cmdString == "test") {
-				FILE* _test = fopen("testCmdSuccessful", "a+");
-				fprintf(_test, "Test cmd successfully received.\n");
-				fclose(_test);
-			}
-			
-			delete buf;
+			sleepLeft = 300 - sleep(300); // 30 minutes.	
 		}
 	}
 }
