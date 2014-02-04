@@ -99,7 +99,7 @@ void SimpleCurl::download(string url, string fileName) {
 	}
 	
 	string fullUrl = url;
-	//fullUrl += "?";
+	fullUrl += "?";
 	//fullUrl += data;
 	
 	FILE* stream = fopen(fileName.c_str(), "w");
@@ -137,10 +137,8 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	
 	CURLBuffer* buf = new CURLBuffer;
 	string fullUrl = url;
-	if(data == "") {
-		fullUrl += "?";
-		fullUrl += data;
-	}
+	fullUrl += "?";
+	fullUrl += data;
 
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);

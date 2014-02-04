@@ -102,7 +102,7 @@ void* updateChecker(void* arg) {
 				}
 			}
 
-			sleepLeft = 300 - sleep(300); // 30 minutes.	
+			sleepLeft -= 300 - sleep(300); // 30 minutes.	
 		}
 	}
 }
