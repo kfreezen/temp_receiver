@@ -114,11 +114,6 @@ extern int noWeb;
 
 // URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
-	// This is testing out the update.
-	FILE* testUpdate = fopen("update_indicator", "w");
-	fprintf(testUpdate, "This is an update, everything has gone well.\n");
-	fclose(testUpdate);
-
 	__stdout_log = stdout;
 	setvbuf(__stdout_log, NULL, _IONBF, 0);
 	
