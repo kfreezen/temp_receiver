@@ -11,6 +11,8 @@
 
 extern string receiverId;
 
+extern FILE* __stdout_log;
+
 int doUpdateCheckerQuit = 0;
 void* updateChecker(void* arg) {
 	while(!doUpdateCheckerQuit) {
@@ -49,22 +51,35 @@ void* updateChecker(void* arg) {
 			sleep(5);
 			continue;
 		}
+		
+		stringstream serverStream;
+		serverStream.str(string(buf->buffer));
+		string serverStr;
+		serverStream >> serverStr;
 
-		if(string(buf->buffer) != Settings::get("server")) {
+		if(serverStr != Settings::get("server")) {
 			// Test our new server for validity.
-			CURLBuffer* result = curl.get(string(buf->buffer) + "/receiver/valid_server", "");
+			CURLBuffer* result = curl.get(serverStr + "/receiver/valid_server", "");
 			if(result == NULL) {
 				sleep(5);
 				continue;
 			}
+			
+			serverStream.str(string(result->buffer));
+			string newServerStr;
+			serverStream >> newServerStr;
 
-			if(string(result->buffer) == string(buf->buffer)) {
+			if(newServerStr == serverStr) {
 				// Matched
-				Settings::set("server", string(buf->buffer));
+				Settings::set("server", newServerStr);
 				Settings::store();
+			} else {
+				fprintf(__stdout_log, "server nonmatch, reverting. %s %s\n", newServerStr.c_str(), serverStr.c_str());
 			}
 			
 			delete result;	
+		} else {
+			fprintf(__stdout_log, "same server\n");
 		}
 
 		delete buf;

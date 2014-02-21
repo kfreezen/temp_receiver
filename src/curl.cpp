@@ -154,7 +154,7 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	int err = curl_easy_perform(this->curlHandle);
 
 	if(err) {
-		fprintf(__stdout_log, "Something went wrong.  err=%d, %s, %d\n", err, __FILE__, __LINE__);
+		fprintf(__stdout_log, "Something went wrong.  err=%d, %s, %d, %s\n", err, __FILE__, __LINE__, fullUrl.c_str());
 		
 		curl_easy_reset(this->curlHandle);
 		delete buf;
