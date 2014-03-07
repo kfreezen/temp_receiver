@@ -259,6 +259,11 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				delete curl;
 			}
 
+			// We need to put the sensor wdt reset spot in a file.
+			FILE* crashReports = fopen("crashReports", "a+");
+			fprintf(crashReports, "wdtResetSpot = %d, sensor = %lx\n", packet->requestReceiver, swap_endian_64(sensorId.uId));
+			fclose(crashReports);
+
 			PacketRev1* reply = new PacketRev1;
 			memset(reply, 0, sizeof(PacketRev1));
 			reply->header.flags = 0;

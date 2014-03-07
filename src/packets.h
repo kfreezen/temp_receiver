@@ -122,7 +122,8 @@ typedef union __PacketRev1 {
 			} tempReport;
 
 			struct {
-				byte reserved[32];
+                byte wdtResetSpot;
+				byte reserved[31];
 			} requestReceiver;
 
 			struct {

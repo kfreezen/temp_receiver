@@ -211,7 +211,10 @@ int main(int argc, char** argv) {
 	
 	SerialPort* port = NULL;
 	
-	int portRetries = 60;
+	int maxPortRetries = 60;
+
+	int portRetries = maxPortRetries;
+
 	while(1) {
 		try {
 			port = new SerialPort(9600);
@@ -221,7 +224,9 @@ int main(int argc, char** argv) {
 				sleep(1);
 			} else {
 				fprintf(__stdout_log, "We did not find a valid port.\n");
-				return 1;
+				// OK we want to wait 5 minutes, and try again.
+				sleep(300);
+				portRetries = maxPortRetries;
 			}
 		}
 
