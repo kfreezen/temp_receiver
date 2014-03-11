@@ -218,12 +218,13 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 
 // Our CURL library test suite.
 // to find bugs, of course.
-void curlTest() {
+bool curlTest() {
 	SimpleCurl curl;
 
 	// First off, we do testing for an empty response.
 	CURLBuffer* buf = curl.get("localhost:8089/fault/empty", "");
 	
 	CURLBuffer* buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
-	
+
+	return true;
 }

@@ -49,4 +49,7 @@ private:
 
 	CURL* curlHandle;
 };
+
+bool curlTest();
+
 #endif

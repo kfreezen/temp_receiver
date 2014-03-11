@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "tests.h"
 #include "xbee.h"
 #include "globaldef.h"
 #include "serial.h"
@@ -24,6 +23,7 @@
 #include "curl.h"
 #include "settings.h"
 #include "update.h"
+#include "test.h"
 
 using namespace std;
 
@@ -123,7 +123,8 @@ int main(int argc, char** argv) {
 	argv++;
 	for(int i=0; i < argc; i++) {
 		if(!strcmp(argv[i], "tests")) {
-			exit(tests());
+			doTests();
+			exit(0);
 		} else if(!strcmp(argv[i], "--daemon")) {
 			enableDaemon = 1;
 		} else if(!strcmp(argv[i], "--no-daemon") || !strcmp(argv[i], "-nd")) {
