@@ -268,15 +268,15 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		return false;
 	}
 	
-	if(string(buf->buffer) == "true") {
+	if(!strcmp(buf->buffer, "true")) {
 		retVal = true;
-	} else if(string(buf->buffer) == "false") {
+	} else if(!strcmp(buf->buffer, "false")) {
 		retVal = false;
 	} else {
 		retVal = false;
 		fprintf(__stdout_log, "data:%s\n", buf->buffer);
 	}
-
+	
 	delete cPOST;
 	delete buf;
 
