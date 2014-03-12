@@ -50,6 +50,8 @@ private:
 	CURL* curlHandle;
 };
 
+void logInternetError(int errCode, const char* data, int length);
+
 bool curlTest();
 
 #endif

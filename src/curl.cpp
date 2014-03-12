@@ -4,6 +4,10 @@
 #include <cstdio>
 #include <cstring>
 
+#include "util.h"
+
+#define CURL_DEBUG 0
+
 using namespace std;
 
 extern FILE* __stdout_log;
@@ -69,15 +73,18 @@ int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) 
 
 	if(buf->buffer == NULL) {
 		buf->init(size*nmemb);
-	} else if(buf->currentItr + size*nmemb > buf->length) {
+	} else if(buf->length + size*nmemb > buf->capacity) {
 		printf("extend");
 		buf->extend(size*nmemb);
 	}
 	
-	printf("memcpy");
-	memcpy(buf->buffer + buf->currentItr, buffer, size*nmemb);
+	#ifdef CURL_DEBUG
+	printf("memcpy %p, %p, %x, %x\n", buf->buffer, buffer, buf->capacity, size*nmemb);
+	#endif
 
-	buf->currentItr += size * nmemb;
+	memcpy(buf->buffer + buf->length, buffer, size*nmemb);
+
+	buf->length += size * nmemb;
 	
 	printf("writeFunc\n");
 
@@ -140,6 +147,10 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	fullUrl += "?";
 	fullUrl += data;
 
+	#if CURL_DEBUG == 1
+	curl_easy_setopt(this->curlHandle, CURLOPT_VERBOSE, 1);
+	#endif
+
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
 	curl_easy_setopt(this->curlHandle, CURLOPT_URL, fullUrl.c_str());
@@ -154,8 +165,9 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	int err = curl_easy_perform(this->curlHandle);
 
 	if(err) {
-		fprintf(__stdout_log, "Something went wrong.  err=%d, %s, %d, %s\n", err, __FILE__, __LINE__, fullUrl.c_str());
-		
+		printf("Something went wrong.  err=%d, get %s\n", err, fullUrl.c_str());
+		logInternetError(err, NULL, 0);
+
 		curl_easy_reset(this->curlHandle);
 		delete buf;
 		return NULL;
@@ -172,8 +184,12 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 
 	CURLBuffer* buf = new CURLBuffer;
 
-	char* postfields = new char[data.length()+1];
+	char* postfields = new char[data.capacity()+1];
 	strcpy(postfields, data.c_str());
+
+	#if CURL_DEBUG == 1
+	curl_easy_setopt(this->curlHandle, CURLOPT_VERBOSE, 1);
+	#endif
 
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEFUNCTION, SimpleCurl::writeFunc);
 	curl_easy_setopt(this->curlHandle, CURLOPT_WRITEDATA, buf);
@@ -197,9 +213,11 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 
 	bool retVal = false;
 
-	if(curl_easy_perform(this->curlHandle)) {
-		//fprintf(__stdout_log, "Something went wrong.  %s, %d\n", __FILE__, __LINE__);
-		
+	int err = curl_easy_perform(this->curlHandle);
+	if(err) {
+		printf("Something went wrong.  err=%d, post %s, args %s\n", err, url.c_str(), data.c_str());
+		logInternetError(err, NULL, 0);
+
 		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
 		

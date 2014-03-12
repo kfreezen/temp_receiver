@@ -8,6 +8,7 @@
 #include "SensorDB.h"
 #include "settings.h"
 #include "packets.h"
+#include "util.h"
 
 #include "curl.h"
 #include <curl/curl.h>
@@ -25,6 +26,14 @@
 using namespace std;
 
 extern FILE* __stdout_log;
+
+void logUnexpectedData(CURLBuffer* buf) {
+	char* tstr = getCurrentTimeAsString();
+	printf("data not as expected.  See log[%s] for details.\n", tstr);
+	delete[] tstr;
+
+	logInternetError(0, buf->buffer, buf->length);
+}
 
 SensorDB::SensorDB() {
 	// TODO Auto-generated constructor stub
@@ -136,13 +145,17 @@ bool SensorDB::AddNetwork(std::string net_id) {
 
 	bool retVal = false;
 
-	if(string(data->buffer) == "true") {
+	if(!strcmp(data->buffer, "true")) {
 		retVal = true;
-	} else if(string(data->buffer) == "false") {
+	} else if(!strcmp(data->buffer, "false")) {
 		retVal = false;
+	} else {
+		retVal = false;
+
+		logUnexpectedData(data);
 	}
 	
-	delete cPOST;
+	delete[] cPOST;
 	delete data;
 
 	return retVal;
@@ -192,10 +205,15 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 		retVal = true;
 	} else if(string(data->buffer) == "false") {
 		retVal = false;
+	} else {
+		retVal = false;
+
+		logUnexpectedData(data);
 	}
 
-	delete cPOST;
-	
+	delete[] cPOST;
+	delete data;
+
 	return retVal;
 }
 
@@ -274,10 +292,15 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		retVal = false;
 	} else {
 		retVal = false;
-		fprintf(__stdout_log, "data:%s\n", buf->buffer);
+
+		printf("scs=%s, cPOST=%s\n", serverCallString.c_str(), cPOST);
+
+		logUnexpectedData(buf);
+
+		//fprintf(__stdout_log, "data:%s\n", buf->buffer);
 	}
-	
-	delete cPOST;
+
+	delete[] cPOST;
 	delete buf;
 
 	return retVal;
