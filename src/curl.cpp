@@ -233,20 +233,88 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
 		
-		delete postfields;
+		delete[] postfields;
 		return buf;
 	}
+}
+
+#define SINGLE_LINE_DATA_LENGTH 24
+#define MAX_DATA_LENGTH 512
+#define MAX_LOG_SIZE_MB 8
+
+void logInternetError(int errorCode, const char* data, int length) {
+	if(data == NULL) {
+		length = 0;
+	}
+
+	FILE* errLog = fopen("internet-issues.log", "a+");
+	int size = ftell(errLog);
+	if(size >= (MAX_LOG_SIZE_MB*1024*1024)) {
+		fclose(errLog);
+		errLog = fopen("internet-issues.log", "w");
+		
+		char* timeStr = getCurrentTimeAsString();
+		fprintf(errLog, "new log: %s\n", timeStr);
+		delete[] timeStr;
+	}
+
+	
+	char* timeStr = getCurrentTimeAsString();
+	fprintf(errLog, "%s: ", timeStr);
+	delete[] timeStr;
+
+	if(errorCode) {
+		fprintf(errLog, "err=%d ", errorCode);
+
+	}
+
+	if(length > 0) {
+		fprintf(errLog, "data =%c", (length < SINGLE_LINE_DATA_LENGTH) ? ' ' : '\n');
+		if(length > MAX_DATA_LENGTH) {
+			length = MAX_DATA_LENGTH;
+		}
+
+		fwrite(data, sizeof(char), length, errLog);
+	}
+
+	fprintf(errLog, "\n");
+
+	fclose(errLog);
 }
 
 // Our CURL library test suite.
 // to find bugs, of course.
 bool curlTest() {
+	SimpleCurl* _dcurl = new SimpleCurl();
+
+	CURLBuffer* buf = _dcurl->get("localhost:8089/fault/empty", "");
+
+	if(buf) {
+		delete buf;
+	}
+
+	CURLBuffer* buf2 = _dcurl->post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
+
+	if(buf2) {
+		delete buf2;
+	}
+
+	delete _dcurl;
+
+	printf("Delete test passed\n");
+
+
 	SimpleCurl curl;
 
 	// First off, we do testing for an empty response.
-	CURLBuffer* buf = curl.get("localhost:8089/fault/empty", "");
+	buf = curl.get("localhost:8089/fault/empty", "");
 	
-	CURLBuffer* buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
+	buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
+
+	const char* logMsg = "test log entry";
+	logInternetError(0, logMsg, strlen(logMsg));
+	logInternetError(987654321, logMsg, strlen(logMsg));
+	logInternetError(123456789, NULL, 0);
 
 	return true;
 }
