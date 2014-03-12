@@ -33,22 +33,22 @@ void CURLBuffer::init(int totalBytes) {
 
 void CURLBuffer::extend(int totalBytes) {
 	char* oldBuffer = this->buffer;
-	int newLength = this->length << 1; // this->length * 2
-	if(newLength < this->currentItr+totalBytes) {
-		newLength = this->length + totalBytes + 1;
+	int newCapacity = this->capacity << 1; // this->capacity * 2
+	if(newCapacity < this->length+totalBytes) {
+		newCapacity = this->capacity + totalBytes + 1;
 	}
 	
 	printf("a__");
 	try {
-		this->buffer = new char[newLength];
+		this->buffer = new char[newCapacity];
 	} catch(std::bad_alloc& ba) {
 		printf("Failed allocation\n");
 	}
 
 	printf("buffer=%p\n", this->buffer);
 
-	this->length = newLength;
-	memset(this->buffer, 0, newLength);
+	this->capacity = newCapacity;
+	memset(this->buffer, 0, newCapacity);
 
 	memcpy(this->buffer, oldBuffer, this->length);
 	delete[] oldBuffer;
