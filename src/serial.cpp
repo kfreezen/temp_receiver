@@ -17,8 +17,6 @@
 
 using namespace std;
 
-extern FILE* __stdout_log;
-
 SerialPort::SerialPort(int baud) {
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
@@ -40,7 +38,7 @@ SerialPort::SerialPort(string port, int baud) {
 // this function defaults to 9600 baud.
 
 void SerialPort::init(string port, int baud) {
-	fprintf(__stdout_log, "SerialPort::init\n");
+	printf("SerialPort::init\n");
 	
 	SerialPort::portFileNo = open(port.c_str(), O_RDWR | O_NONBLOCK);
 	
@@ -49,7 +47,7 @@ void SerialPort::init(string port, int baud) {
 	memset(&portOpts, 0, sizeof(struct termios));
 	// Get the port attributes.
 	if(tcgetattr(SerialPort::portFileNo, &portOpts) == -1) {
-		fprintf(__stdout_log, "tcgetattr(%d, %p) error, errno=%d\n", SerialPort::portFileNo, &portOpts, errno);
+		printf("tcgetattr(%d, %p) error, errno=%d\n", SerialPort::portFileNo, &portOpts, errno);
 		exit(1);
 	}
 	
@@ -93,18 +91,18 @@ void SerialPort::init(string port, int baud) {
 	
 	// Now set our serial input and output baud.
 	if(cfsetispeed(&portOpts, speedSelect)==-1) {
-		fprintf(__stdout_log, "cfsetispeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
+		printf("cfsetispeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
 		exit(1);
 	}
 	
 	if(cfsetospeed(&portOpts, speedSelect)==-1) {
-		fprintf(__stdout_log, "cfsetospeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
+		printf("cfsetospeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
 		exit(1);
 	}
 	
 	// Write our modified options to the port's settings.
 	if(tcsetattr(SerialPort::portFileNo, TCSANOW, &portOpts)==-1) {
-		fprintf(__stdout_log, "tcsetattr(%d, %d, %p) error, errno=%d\n", SerialPort::portFileNo, TCSANOW, &portOpts);
+		printf("tcsetattr(%d, %d, %p) error, errno=%d\n", SerialPort::portFileNo, TCSANOW, &portOpts);
 		exit(1);
 	}
 	
@@ -116,7 +114,7 @@ void SerialPort::init(string port, int baud) {
 }
 
 int SerialPort::reinit() {
-	fprintf(__stdout_log, "Reconnecting...\n");
+	printf("Reconnecting...\n");
 	
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
@@ -202,10 +200,10 @@ int SerialPort::read(void* buffer, int len) {
 			size -= amount_read;
 		}
 
-		//fprintf(__stdout_log, "while size=%d", size);
+		//printf("while size=%d", size);
 	}
 	return len-size;
-	//fprintf(__stdout_log, "return\n");
+	//printf("return\n");
 }
 
 void SerialPort::write(void const* buffer, int len) {

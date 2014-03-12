@@ -17,8 +17,6 @@
 
 int xbeeDebug = 0;
 
-extern FILE* __stdout_log;
-
 //extern void HandlePacket(SerialPort* port, Frame* apiFrame);
 
 extern void hexdump(void* ptr, int len);
@@ -30,7 +28,7 @@ bool operator<(const XBeeAddress& left, const XBeeAddress& right) {
 	if(sizeof(uint64) == sizeof(XBeeAddress)) {
 		return left.uAddr < right.uAddr;
 	} else {
-		fprintf(__stdout_log, "sizeof(uint64) != %d\n", sizeof(XBeeAddress));
+		printf("sizeof(uint64) != %d\n", sizeof(XBeeAddress));
 		return false;
 	}
 }
@@ -91,19 +89,19 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 
 	if(length == sizeof(PacketRev0)) {
 		size = sizeof(TxFrameRev0);
-		fprintf(__stdout_log, "TxFrameRev0\n");
+		printf("TxFrameRev0\n");
 	} else {
 		size = sizeof(TxFrameRev1);
-		fprintf(__stdout_log, "TxFrameRev1\n");
+		printf("TxFrameRev1\n");
 	}
 
-	fprintf(__stdout_log, "id=%d, sentaddress = ", id);
+	printf("id=%d, sentaddress = ", id);
 	int i;
 	for(i=0; i < 8; i++) {
-		fprintf(__stdout_log, "%x ", address->addr[i]);
+		printf("%x ", address->addr[i]);
 	}
 
-	fprintf(__stdout_log, "\n");
+	printf("\n");
 
 	// We can use .tx.rev0 in these option settings because these are unchanged over revisions due to the fact that they
 	// are part of the xbee's frames. 
@@ -135,7 +133,7 @@ void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer
 	//XBAPI_HandleFrame(port, API_TRANSMIT_STATUS);
 
 	if(xbeeDebug) {
-		fprintf(__stdout_log, "XBAPI_Transmit()\n");
+		printf("XBAPI_Transmit()\n");
 	}
 }
 
@@ -154,7 +152,7 @@ bool XBAPI_ReadFrame(SerialPort* port, Frame* frame) {
 		// TODO:  Figure out what we want to do when a byte is not received.  For now just ignore it.
 		if(c == START_DELIMITER && bytesRead>0) {
 			if(xbeeDebug) {
-				fprintf(__stdout_log, "Start delimiter found.\n");
+				printf("Start delimiter found.\n");
 			}
 
 			frame->buffer[0] = c;
@@ -171,7 +169,7 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		if(c == START_DELIMITER) {
 			// If c == START_DELIMITER we reset the length iterator.
 			if(xbeeDebug) {
-				fprintf(__stdout_log, "Another start delimiter found.\n");
+				printf("Another start delimiter found.\n");
 			}
 			
 			goto reset_for_loop; // The other way is to set i to -1, but I like using overflows to 0 in a loop less than I like using goto's.
@@ -186,7 +184,7 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 	length += 1; // This is so that we include the checksum as well.
 
 	if(xbeeDebug) {
-		fprintf(__stdout_log, "length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.rev0.length[0], frame->rx.rev0.length[1]);
+		printf("length = %d, l[0]=%x, l[1]=%x\n", length, frame->rx.rev0.length[0], frame->rx.rev0.length[1]);
 	}
 
 	// Read in the rest of the stuff.
@@ -196,21 +194,21 @@ reset_for_loop: // I feel dirty doing this.  This is jumped to when we find anot
 		if(bytesRead < length) {
 			FILE* dbg_out = fopen("debug_log.txt", "a");
 			if(dbg_out==NULL) {
-				fprintf(__stdout_log, "dbg_out ERROR.\n");
+				printf("dbg_out ERROR.\n");
 			}
 			
 			for(i=0; i<sizeof(Frame); i++) {
 				fprintf(dbg_out, "%x ", frame->buffer[i]);
-				fprintf(__stdout_log, "%x ", frame->buffer[i]);
+				printf("%x ", frame->buffer[i]);
 			}
 
 			fprintf(dbg_out, "\n");
-			fprintf(__stdout_log, "\n");
+			printf("\n");
 
-			fprintf(__stdout_log, "Timed out.\n");
+			printf("Timed out.\n");
 			fclose(dbg_out);
 		} else {
-			fprintf(__stdout_log, "Done with XBAPI_ReadFrame().\n");
+			printf("Done with XBAPI_ReadFrame().\n");
 		}
 	}
 
@@ -233,7 +231,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	Frame* apiFrame = commStruct->replyFrame;
 	
 	if(xbeeDebug) {
-		fprintf(__stdout_log, "Handling ... ");
+		printf("Handling ... ");
 	}
 
 	switch(apiFrame->rx.rev0.frame_type) {
@@ -256,7 +254,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 			int dataLength = apiFrameLength - (sizeof(ATCmdResponse_NoData) - 4);
 			// Now we take the data and put it into an unsigned int.
 			if(dataLength > maxDataLength) {
-				fprintf(__stdout_log, "dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
+				printf("dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
 				return -1;
 			}
 			
@@ -273,7 +271,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 				case 4:
 					*((unsigned*)data) = swap_endian_32(*((unsigned*)apiFrame->atCmdResponse.data_checksum));
-					fprintf(__stdout_log, "Got it.  data = %x\n", *((unsigned*)data));
+					printf("Got it.  data = %x\n", *((unsigned*)data));
 					break;
 					
 				default:
@@ -295,9 +293,9 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 		
 		case API_TRANSMIT_STATUS: {
 			if(apiFrame->txStatus.delivery_status == 0x00) {
-				fprintf(__stdout_log, "Transmit was successful.\n");
+				printf("Transmit was successful.\n");
 			} else {
-				fprintf(__stdout_log, "Transmit failed.  deliveryStatus=%x\n", apiFrame->txStatus.delivery_status);
+				printf("Transmit failed.  deliveryStatus=%x\n", apiFrame->txStatus.delivery_status);
 			}
 		} break;
 
@@ -312,7 +310,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	}
 	
 	if(xbeeDebug) {
-		fprintf(__stdout_log, "Returned\n");
+		printf("Returned\n");
 	}
 	
 	return 1;
@@ -330,7 +328,7 @@ int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data
 	request.dataLength = dataLength;
 
 #ifdef XBEE_COMM_WORKING_TEST
-	fprintf(__stdout_log, "XBAPI_Comand being sent.\n");
+	printf("XBAPI_Comand being sent.\n");
 #endif
 
 	return comm->registerRequest(request);
@@ -338,7 +336,7 @@ int XBAPI_Command(XBeeCommunicator* comm, unsigned short command, unsigned* data
 
 int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* data, int length, int id, XBeeCommStruct* comm) {
     #ifdef XBEE_COMM_WORKING_TEST
-    fprintf(__stdout_log, "XBAPI Command being issued.\n");
+    printf("XBAPI Command being issued.\n");
     #endif
 
     /*int total_packet_length = 4 + length;
@@ -365,7 +363,7 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     apiFrame.atCmd.frame_id = id;
     apiFrame.atCmd.command = command;
     
-	fprintf(__stdout_log, "command frame id = %x\n", id);
+	printf("command frame id = %x\n", id);
 
 	if(data) {
 		apiFrame.atCmd.data = swap_endian_32(*data);

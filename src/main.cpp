@@ -27,7 +27,6 @@
 
 using namespace std;
 
-FILE* __stdout_log;
 char* log_buffer;
 
 // I feel dirty using these globals, but alas, I'm too lazy to do anything else.
@@ -44,7 +43,7 @@ extern int packetsDebug;
 // SIGNAL STUFF
 
 void sigterm_handler(int sig, siginfo_t* siginfo, void* context) {
-	fprintf(__stdout_log, "sigterm.  from %d, sig=%d, exiting...\n", siginfo->si_pid, sig);
+	printf("sigterm.  from %d, sig=%d, exiting...\n", siginfo->si_pid, sig);
 	
 	XBeeCommunicator::cleanupDefault();
 
@@ -52,11 +51,11 @@ void sigterm_handler(int sig, siginfo_t* siginfo, void* context) {
 }
 
 void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
-	fprintf(__stdout_log, "SIGQUIT received from %d, ignoring...\n", siginfo->si_pid);
+	printf("SIGQUIT received from %d, ignoring...\n", siginfo->si_pid);
 }
 
 void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
-	fprintf(__stdout_log, "SIGINT received from %d, exiting...\n", siginfo->si_pid);
+	printf("SIGINT received from %d, exiting...\n", siginfo->si_pid);
 	exit(0);
 }
 
@@ -84,7 +83,7 @@ void* sensor_scanning_thread(void* p) {
 		SensorMap::iterator itr;
 		for(itr = sensorMap.begin(); itr != sensorMap.end(); itr++) {
 			if(itr->second == NULL) {
-				fprintf(__stdout_log, "Encountered NULL Sensor. %d\n", sensorMap.size());
+				printf("Encountered NULL Sensor. %d\n", sensorMap.size());
 				continue;
 			}
 			
@@ -102,7 +101,7 @@ void hexdump(void* ptr, int len) {
 	unsigned char* addr = (unsigned char*) ptr;
 	int i;
 	for(i=0; i<len; i++) {
-		fprintf(__stdout_log, "%x%c", addr[i], (i%16) ? ' '  : '\n');
+		printf("%x%c", addr[i], (i%16) ? ' '  : '\n');
 	}
 }
 
@@ -114,8 +113,8 @@ extern int noWeb;
 
 // URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
-	__stdout_log = stdout;
-	setvbuf(__stdout_log, NULL, _IONBF, 0);
+	// Not sure if this setvbuf is necessary anymore.
+	setvbuf(stdout, NULL, _IONBF, 0);
 	
 	int enableDaemon = ENABLE_DAEMON;
 
@@ -141,19 +140,14 @@ int main(int argc, char** argv) {
 
 	}
 
-	if(enableDaemon == 1) {
-		__stdout_log = fopen("stdout_log.log", "w+");
-	}
-
-	fprintf(__stdout_log, "New receiver session at %lu\n", time(NULL));
+	printf("New receiver session at %lu\n", time(NULL));
 
 	// Split this into a daemon.
 	pid_t process_id = 0;
 	pid_t sid = 0;
 
 	if(enableDaemon == 1) {
-		fclose(__stdout_log);
-	
+
 		// forking!
 		process_id = fork();
 
@@ -166,21 +160,15 @@ int main(int argc, char** argv) {
 			printf("Child process PID = %d\n", process_id);
 			exit(0);
 		} else {
-			//fclose(__stdout_log);
 		}
 		umask(0);
 		// done forking!
-	}
-
-	__stdout_log = fopen("stdout_log.log", "a+");
-	if(__stdout_log != NULL) {
-		setvbuf(__stdout_log, NULL, _IONBF, 0);
 	}
 	
 	if(enableDaemon == 1) {
 		sid = setsid();
 		if(sid < 0) {
-			fprintf(__stdout_log, "Failed getting session ID.\n");
+			printf("Failed getting session ID.\n");
 			exit(1);
 		}
 	}
@@ -195,13 +183,12 @@ int main(int argc, char** argv) {
 		fp = freopen("/tmp/temp_receiver_stdout", "a+", stdout);
 		errfp = freopen("/tmp/temp_receiver_stderr", "a+", stderr);
 	} else {
-		__stdout_log = stdout;
 	}
 
 	// Now since the above line didn't work for some reason...
 	if(enableDaemon == 1) {
 		if(fp == NULL) {
-			fprintf(__stdout_log, "Failure redirecting stdout.\n");
+			printf("Failure redirecting stdout.\n");
 		}
 	}
 
@@ -224,7 +211,7 @@ int main(int argc, char** argv) {
 			if(--portRetries) {
 				sleep(1);
 			} else {
-				fprintf(__stdout_log, "We did not find a valid port.\n");
+				printf("We did not find a valid port.\n");
 				// OK we want to wait 5 minutes, and try again.
 				sleep(300);
 				portRetries = maxPortRetries;
@@ -245,7 +232,7 @@ int main(int argc, char** argv) {
 	comm->startDispatch();
 	comm->startHandler();
 
-	fprintf(__stdout_log, "We are go\n");
+	printf("We are go\n");
 
 	pthread_t thread;
 	//pthread_create(&thread, NULL, &sensor_scanning_thread, NULL);
@@ -281,16 +268,16 @@ int main(int argc, char** argv) {
 		CURLBuffer* buf = _curl->get(url, "");
 		
 		if(buf == NULL) {
-			fprintf(__stdout_log, "warning:  Something went wrong.  buf should not be null.\n");
+			printf("warning:  Something went wrong.  buf should not be null.\n");
 		} else {
-			fprintf(__stdout_log, "%s\n", buf->buffer);
+			printf("%s\n", buf->buffer);
 			fwrite(buf->buffer, 1, strlen(buf->buffer), idFile);
 			char _null = 0;
 			fwrite(&_null, 1, 1, idFile);
 			receiverId = string(buf->buffer);
 		}
 		
-		fprintf(__stdout_log, "server=%s", url.c_str());
+		printf("server=%s", url.c_str());
 		
 		if(buf != NULL) {
 			delete buf;
@@ -315,15 +302,15 @@ int main(int argc, char** argv) {
 
 	fclose(idFile);
 
-	fprintf(__stdout_log, "We are starting the loop\n");
+	printf("We are starting the loop\n");
 
 	while(1) {
-		fflush(__stdout_log);
+		fflush(stdout);
 		sleep(1);
 		//XBAPI_HandleFrame(port, 0);
 	
-		//fprintf(__stdout_log, "while()\n");
+		//printf("while()\n");
 		//port->read(buffer, 4);
-		//fprintf(__stdout_log, "%x %x %x %x ", buffer[0], buffer[1], buffer[2], buffer[3]);
+		//printf("%x %x %x %x ", buffer[0], buffer[1], buffer[2], buffer[3]);
 	}
 }

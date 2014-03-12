@@ -1,3 +1,4 @@
+// NOTE:  Methinks this is obsolete, non-used code.
 #include "receiver_instance.h"
 
 #include <cstdio>
@@ -19,14 +20,14 @@ void ReceiverInstance::run() {
 	pthread_t* thread = new pthread_t;
 	int pthreadErr = pthread_create(thread, NULL, (void* (*)(void*))ReceiverInstance::instance, this);
 	if(pthreadErr == EAGAIN) {
-		fprintf(__stdout_log, "No resources for ReceiverInstance thread.\n");
+		printf("No resources for ReceiverInstance thread.\n");
 	} else if(pthreadErr == 0) {
 		ReceiverInstance::thread = thread;
 		ReceiverInstance::instanceId = ReceiverInstance::nextInstanceId++;
 	} else if(pthreadErr == EINVAL) {
-		fprintf(__stdout_log, "A value specified by attr is invalid (ReceiverInstance)\n");
+		printf("A value specified by attr is invalid (ReceiverInstance)\n");
 	} else {
-		fprintf(__stdout_log, "Something went wrong in ReceiverInstance.\n");
+		printf("Something went wrong in ReceiverInstance.\n");
 	}
 }
 

@@ -24,7 +24,6 @@ using namespace std;
 
 // Some ugly externs if there ever were any.  WHEW!  UGLY UGLY UGLY UGLY
 // UGLY CODE WARNING!!!!!
-extern FILE* __stdout_log;
 
 extern void hexdump(void*, int);
 extern string GetXBeeID(XBeeAddress*);
@@ -71,11 +70,11 @@ void SendPacket(XBeeCommunicator* comm, int revision, XBeeAddress* address, void
 }
 
 void SendReceiverAddress(XBeeCommunicator* comm, XBeeAddress* dest, int id) {
-	fprintf(__stdout_log, "Warning:  SendReceiverAddress is deprecated.\n");
+	printf("Warning:  SendReceiverAddress is deprecated.\n");
 
 	#ifdef PACKETS_DEBUG
 	for(int i=0; i<sizeof(XBeeAddress); i++) {
-		fprintf(__stdout_log, "%x%c", dest->addr[i], (i==sizeof(XBeeAddress)-1) ? '\n' : ' ');
+		printf("%x%c", dest->addr[i], (i==sizeof(XBeeAddress)-1) ? '\n' : ' ');
 	}
 	#endif
 	
@@ -91,7 +90,7 @@ void SendReceiverAddress(XBeeCommunicator* comm, XBeeAddress* dest, int id) {
 }
 
 void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
-	//fprintf(__stdout_log, "HELP US ALL!\n");
+	//printf("HELP US ALL!\n");
 
 	int revision = 0;
 
@@ -113,7 +112,7 @@ void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 	/*switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
 			#ifdef PACKETS_DEBUG
-			fprintf(__stdout_log, "receiver request\n");
+			printf("receiver request\n");
 			#endif
 			
 			XBeeAddress xbee_addr;
@@ -145,7 +144,7 @@ void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
 			
 			#ifdef PACKET_DEBUG_VERBOSE0
-			fprintf(__stdout_log, "probe0_temp=%f\n", probe0_temp);
+			printf("probe0_temp=%f\n", probe0_temp);
 			#endif
 			
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
@@ -201,7 +200,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev1));
 	
 	if(calc_crc16 != crc16) {
-		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
+		printf("CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
 		//hexdump(packet, sizeof(PacketRev1));
 		return;
 	}
@@ -246,12 +245,12 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				CURLBuffer* buf = curl->get(url, "");
 				
 				if(buf == NULL) {
-					fprintf(__stdout_log, "Something went wrong.  buf should not be null.\n");
+					printf("Something went wrong.  buf should not be null.\n");
 				} else {
 					sensorId.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
 				}
 
-				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(sensorId.uId));
+				printf("server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(sensorId.uId));
 				if(buf != NULL) {
 					delete buf;
 				}
@@ -313,12 +312,12 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 				CURLBuffer* buf = curl->get(url, "");
 				
 				if(buf == NULL) {
-					fprintf(__stdout_log, "warning:  Something went wrong.  buf should not be null.\n");
+					printf("warning:  Something went wrong.  buf should not be null.\n");
 				} else {
 					id.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
 				}
 
-				fprintf(__stdout_log, "server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(id.uId));
+				printf("server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(id.uId));
 
 				if(buf != NULL) {
 					delete buf;
@@ -371,7 +370,7 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev0));
 	
 	if(calc_crc16 != crc16) {
-		fprintf(__stdout_log, "CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev0));
+		printf("CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev0));
 		hexdump(packet, sizeof(PacketRev0));
 		return;
 	}
@@ -379,7 +378,7 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 	switch(packet->header.command) {
 		case REQUEST_RECEIVER: {
 			#ifdef PACKETS_DEBUG
-			fprintf(__stdout_log, "receiver request\n");
+			printf("receiver request\n");
 			#endif
 			
 			XBeeAddress xbee_addr;
@@ -414,7 +413,7 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
 			
 			#ifdef PACKET_DEBUG_VERBOSE0
-			fprintf(__stdout_log, "probe0_temp=%f\n", probe0_temp);
+			printf("probe0_temp=%f\n", probe0_temp);
 			#endif
 			
 			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.

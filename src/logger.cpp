@@ -6,8 +6,6 @@
 
 using namespace std;
 
-extern FILE* __stdout_log;
-
 void Logger_Init(const char* server_address) {
 	/*
 		For now we leave this blank.  Later on, the mysql code will need
@@ -22,12 +20,12 @@ void Logger_AddEntry(LogEntry* entry, int command) {
 	
 	switch(command) {
 	case REQUEST_RECEIVER:  {
-		fprintf(__stdout_log, "%u receiver request #%s\n", entry->time, /*GenerateXBeeAddressString(entry->sensorId),*/ ctime(&entry->time));
+		printf("%u receiver request #%s\n", entry->time, /*GenerateXBeeAddressString(entry->sensorId),*/ ctime(&entry->time));
 		break;
 	}
 	
 	case REPORT: {
-		fprintf(__stdout_log, "%u %d #%s\n", entry->time, entry->resistance, ctime(&entry->time));
+		printf("%u %d #%s\n", entry->time, entry->resistance, ctime(&entry->time));
 		break;
 	}
 	

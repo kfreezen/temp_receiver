@@ -25,8 +25,6 @@
 
 using namespace std;
 
-extern FILE* __stdout_log;
-
 void logUnexpectedData(CURLBuffer* buf) {
 	char* tstr = getCurrentTimeAsString();
 	printf("data not as expected.  See log[%s] for details.\n", tstr);
@@ -58,7 +56,7 @@ typedef struct {
 #pragma gcc poison loadSettings
 void loadSettings(const char* file) {
 	Settings::load(string(file));
-	fprintf(__stdout_log, "You should use Settings::load instead.\n");
+	printf("You should use Settings::load instead.\n");
 
 	/*ifstream in;
 	in.open(file);
@@ -81,12 +79,12 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 	CURLRecvStruct* curlRecv = (CURLRecvStruct*) userPointer;
 
 	if(curlRecv == NULL) {
-		fprintf(__stdout_log, "curlRecv == null.  ERROR\n");
+		printf("curlRecv == null.  ERROR\n");
 		return 0;
 	}
 	
 	#ifdef DEBUG
-	fprintf(__stdout_log, "processDataStart %p,%d,%d,%p\nbuffer=%p,length=%d,currentItr=%d\n", _buffer, size, nmemb, userPointer, curlRecv->buffer, curlRecv->length, curlRecv->currentItr);
+	printf("processDataStart %p,%d,%d,%p\nbuffer=%p,length=%d,currentItr=%d\n", _buffer, size, nmemb, userPointer, curlRecv->buffer, curlRecv->length, curlRecv->currentItr);
 	#endif
 	
 	// First we see if the structure needs to be initialized.
@@ -94,7 +92,7 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 		try {
 			curlRecv->buffer = new char[(size*nmemb>256)?size*nmemb+256:256];
 		} catch(bad_alloc& ba) {
-			fprintf(__stdout_log, "bad alloc caught:  %s\n", ba.what());
+			printf("bad alloc caught:  %s\n", ba.what());
 		}
 
 		curlRecv->length = (size*nmemb>256)?size*nmemb+256:256;
@@ -125,7 +123,7 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 
 bool SensorDB::AddNetwork(std::string net_id) {
 	if(net_id.length() != ID_LENGTH) {
-		fprintf(__stdout_log, "net_id.length()=%d, should equal 16.", net_id.length());
+		printf("net_id.length()=%d, should equal 16.", net_id.length());
 		throw SensorDBException("net_id wrong length");
 	}
 
@@ -163,16 +161,16 @@ bool SensorDB::AddNetwork(std::string net_id) {
 
 bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	#ifdef DEBUG
-	fprintf(__stdout_log, "AddReportRun()\n");
+	printf("AddReportRun()\n");
 	#endif
 	
 	if(net_id.length() != ID_LENGTH) {
-		fprintf(__stdout_log, "net_id.length()=%d, should equal %d.", net_id.length(), ID_LENGTH);
+		printf("net_id.length()=%d, should equal %d.", net_id.length(), ID_LENGTH);
 		throw SensorDBException("net_id wrong length");
 	}
 	
 	if(sensor_id.length() != ID_LENGTH) {
-		fprintf(__stdout_log, "sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
+		printf("sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
 		throw SensorDBException("sensor_id wrong length");
 	}
 	
@@ -184,7 +182,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	try {
 		cPOST = new char[256];
 	} catch(bad_alloc& ba) {
-		fprintf(__stdout_log, "bad_alloc caught %s\n", ba.what());
+		printf("bad_alloc caught %s\n", ba.what());
 	}
 	
 	string encodedNetworkId = curl.escape(net_id);
@@ -192,7 +190,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 
 	sprintf(cPOST, "{\"network_id\": \"%s\", \"sensor_id\": \"%s\", \"recv_auth\": \"%s\"}", encodedNetworkId.c_str(), encodedSensorId.c_str(), RECV_AUTH);
 
-	fprintf(__stdout_log, "%s:%s\n", serverCallString.c_str(), cPOST);
+	printf("%s:%s\n", serverCallString.c_str(), cPOST);
 	
 	CURLBuffer* data = curl.post(serverCallString, string(cPOST), POST_JSON);
 	if(data == NULL) {
@@ -238,7 +236,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	bool retVal;
 	
 	if(sensor_id.length() != ID_LENGTH) {
-		fprintf(__stdout_log, "sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
+		printf("sensor_id.length()=%d, should equal %d.", sensor_id.length(), ID_LENGTH);
 		throw SensorDBException("sensor_id wrong length");
 	}
 	
@@ -251,7 +249,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	try {
 		cPOST = new char[512];
 	} catch(bad_alloc& ba) {
-		fprintf(__stdout_log, "bad_alloc caught %s\n", ba.what());
+		printf("bad_alloc caught %s\n", ba.what());
 	}
 	
 	string sensor_id_encoded = curl.escape(sensor_id);
@@ -297,7 +295,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 
 		logUnexpectedData(buf);
 
-		//fprintf(__stdout_log, "data:%s\n", buf->buffer);
+		//printf("data:%s\n", buf->buffer);
 	}
 
 	delete[] cPOST;

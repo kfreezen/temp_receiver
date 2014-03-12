@@ -6,8 +6,6 @@
 #include "XBeeCommunicator.h"
 #include "util.h"
 
-extern FILE* __stdout_log;
-
 using std::deque;
 
 const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
@@ -52,7 +50,7 @@ void XBeeCommunicator::startHandler() {
 				break;
 		}
 
-		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
+		printf("ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
 	}
 }
 
@@ -76,7 +74,7 @@ void XBeeCommunicator::startDispatch() {
 				break;
 		}
 
-		fprintf(__stdout_log, "ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
+		printf("ERROR:  Failed to start XBee dispatcher thread.  reason: %s\n", errReason.c_str());
 	}
 
 	// Now created, or should be anyway.
@@ -143,7 +141,7 @@ int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
 	this->dispatchQueue.push_front(request);
 	
 #ifdef XBEE_COMM_WORKING_TEST
-	fprintf(__stdout_log, "Registering a request. %p\n", request.callback);
+	printf("Registering a request. %p\n", request.callback);
 #endif
 
 	pthread_cond_signal(&this->dispatchThreadCondition);
@@ -189,7 +187,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		*/
 		int cbRet = 0;
 		if(commStruct->callback) {
-			fprintf(__stdout_log, "callback=%p\n", commStruct->callback);
+			printf("callback=%p\n", commStruct->callback);
 			cbRet = commStruct->callback(comm, commStruct);
 		}
 
@@ -221,7 +219,7 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 
 	while(1) {
 		while(!comm->dispatchQueue.empty()) {
-			fprintf(__stdout_log, "comm->dispatchQueue.size() = %d\n", comm->dispatchQueue.size());
+			printf("comm->dispatchQueue.size() = %d\n", comm->dispatchQueue.size());
 			pthread_mutex_lock(&comm->dispatchThreadMutex);
 			XBeeCommRequest request = comm->dispatchQueue.back();
 			comm->dispatchQueue.pop_back();
@@ -236,7 +234,7 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 				continue;
 			}
 
-			fprintf(__stdout_log, "request.callback=%p\n", request.callback);
+			printf("request.callback=%p\n", request.callback);
 
 			comm->xbeeComms[commId-1].callback = request.callback;
 			comm->xbeeComms[commId-1].id = commId;

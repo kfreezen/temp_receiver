@@ -11,8 +11,6 @@
 
 extern string receiverId;
 
-extern FILE* __stdout_log;
-
 int doUpdateCheckerQuit = 0;
 void* updateChecker(void* arg) {
 	while(!doUpdateCheckerQuit) {
@@ -55,7 +53,7 @@ void* updateChecker(void* arg) {
 		
 		stringstream serverStream;
 		serverStream.str(string(buf->buffer));
-		
+
 		string serverStr;
 		serverStream >> serverStr;
 
@@ -76,12 +74,12 @@ void* updateChecker(void* arg) {
 				Settings::set("server", newServerStr);
 				Settings::store();
 			} else {
-				fprintf(__stdout_log, "server nonmatch, reverting. %s %s\n", newServerStr.c_str(), serverStr.c_str());
+				printf("server nonmatch, reverting. %s %s\n", newServerStr.c_str(), serverStr.c_str());
 			}
 			
 			delete result;	
 		} else {
-			fprintf(__stdout_log, "same server\n");
+			printf("same server\n");
 		}
 
 		delete buf;

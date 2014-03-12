@@ -9,7 +9,6 @@
 
 #include <string>
 
-extern FILE* __stdout_log;
 extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
 extern string receiverId;
 
@@ -68,7 +67,7 @@ void AddSensor(SensorId* id) {
 	
 	memcpy(&sensor->id, id, sizeof(SensorId));
 
-	//fprintf(__stdout_log, "id=%s\n", GetXBeeID(addr).c_str());
+	//printf("id=%s\n", GetXBeeID(addr).c_str());
 	
 	SensorDB db;
 
