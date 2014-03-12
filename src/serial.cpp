@@ -228,7 +228,7 @@ vector<string> findValidPorts(string portBase) {
 		}
 	}
 	
-	delete buffer;
+	delete[] buffer;
 
 	return retVector;
 }

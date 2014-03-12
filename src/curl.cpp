@@ -26,6 +26,7 @@ void CURLBuffer::init(int totalBytes) {
 	}
 
 	memset(this->buffer, 0, (totalBytes>256) ? totalBytes+256:256);
+
 }
 
 void CURLBuffer::extend(int totalBytes) {
@@ -47,8 +48,8 @@ void CURLBuffer::extend(int totalBytes) {
 	this->length = newLength;
 	memset(this->buffer, 0, newLength);
 
-	memcpy(this->buffer, oldBuffer, this->currentItr);
-	delete oldBuffer;
+	memcpy(this->buffer, oldBuffer, this->length);
+	delete[] oldBuffer;
 }
 
 SimpleCurl::SimpleCurl() {
@@ -222,7 +223,7 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 		curl_slist_free_all(headers);
 		curl_easy_reset(this->curlHandle);
 		
-		delete postfields;
+		delete[] postfields;
 		delete buf;
 		return NULL;
 	} else {

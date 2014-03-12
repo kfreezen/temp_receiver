@@ -30,7 +30,7 @@ string GetID(SensorId* id) {
 	}
 
 	string _s = string(s);
-	delete s;
+	delete[] s;
 	return _s;
 }
 

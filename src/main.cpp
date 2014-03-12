@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
 	
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	
-	delete buffer;
+	delete[] buffer;
 
 	// Load our application receiver ID.
 	FILE* idFile = fopen("receiver.id", "r");
@@ -310,7 +310,7 @@ int main(int argc, char** argv) {
 		fread(buf, 1, end, idFile);
 		
 		receiverId = string(buf);
-		delete buf;
+		delete[] buf;
 	}
 
 	fclose(idFile);

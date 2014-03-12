@@ -172,6 +172,8 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 			// There are no valid commStructs for this, we should just create
 			// a stub one.
 			commStruct = new XBeeCommStruct;
+			memset(commStruct, 0, sizeof(XBeeCommStruct));
+			
 			commStruct->callback = NULL;
 			commStruct->id = 0;
 		}
@@ -201,7 +203,13 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 
 		// If there is no one waiting, then free the structure
 		if(cbRet == 1 && commStruct->waiting == 0 && commStruct->id != 0) {
-			comm->freeCommStruct(commStruct->origFrame->txStatus.frame_id);
+			// Before we free, we need to check
+			// to see if the argument is valid.
+			if(commStruct->origFrame) {
+				comm->freeCommStruct(commStruct->origFrame->txStatus.frame_id);
+			} else {
+				printf("commStruct->origFrame = %p\n", commStruct->origFrame);
+			}
 		}
 	}
 }
