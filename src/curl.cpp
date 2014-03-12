@@ -20,6 +20,8 @@ void CURLBuffer::init(int totalBytes) {
 
 	try {
 		this->buffer = new char[(totalBytes>256)?totalBytes+256:256];
+		this->capacity = (totalBytes>256) ? totalBytes + 256 : 256;
+
 	} catch(bad_alloc& ba) {
 		fprintf(__stdout_log, "CURLBuffer::init() -- bad alloc caught:  %s\n", ba.what());
 		return;
