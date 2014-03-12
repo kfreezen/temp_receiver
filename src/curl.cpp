@@ -57,6 +57,7 @@ SimpleCurl::SimpleCurl() {
 }
 
 SimpleCurl::~SimpleCurl() {
+
 	if(this->curlHandle != NULL) {
 		curl_easy_cleanup(this->curlHandle);
 		this->curlHandle = NULL;
@@ -92,7 +93,7 @@ int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) 
 }
 
 string SimpleCurl::escape(string toEscape) {
-	char* escapedString = curl_easy_escape(this->curlHandle, toEscape.c_str(), toEscape.length());
+	char* escapedString = curl_easy_escape(this->curlHandle, toEscape.c_str(), toEscape.capacity());
 	string escapedStringRet = string(escapedString);
 	curl_free(escapedString);
 	return escapedStringRet;

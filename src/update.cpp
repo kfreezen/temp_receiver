@@ -25,6 +25,7 @@ void* updateChecker(void* arg) {
 
 		stringstream ss;
 		ss.str(string(buf->buffer));
+
 		int myVersion = CURRENT_VERSION, newVersion;
 		ss>> newVersion;
 		
@@ -54,6 +55,7 @@ void* updateChecker(void* arg) {
 		
 		stringstream serverStream;
 		serverStream.str(string(buf->buffer));
+		
 		string serverStr;
 		serverStream >> serverStr;
 

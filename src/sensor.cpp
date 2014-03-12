@@ -63,7 +63,9 @@ void AddSensor(SensorId* id) {
 		return;
 	}
 	
+	// Valgrind says this is definitely lost.
 	Sensor* sensor = new Sensor;
+	
 	memcpy(&sensor->id, id, sizeof(SensorId));
 
 	//fprintf(__stdout_log, "id=%s\n", GetXBeeID(addr).c_str());

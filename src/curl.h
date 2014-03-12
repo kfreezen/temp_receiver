@@ -13,19 +13,20 @@ class CURLBuffer {
 public:
 	~CURLBuffer() {
 		if(buffer != NULL) {
-			delete buffer;
+			delete[] buffer;
+			buffer = NULL;
 		}
 	}
 
 	CURLBuffer() {
 		buffer = NULL;
 		length = 0;
-		currentItr = 0;
+		capacity = 0;
 	}
 
 	char* buffer;
 	int length;
-	int currentItr;
+	int capacity;
 
 	void init(int totalBytes);
 
