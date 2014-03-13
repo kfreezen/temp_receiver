@@ -1,6 +1,7 @@
 #include "sensor.h"
 #include "xbee.h"
 #include "SensorDB.h"
+#include "util.h"
 
 #include <map>
 #include <cstdio>
@@ -46,6 +47,7 @@ string GetXBeeID(XBeeAddress* addr) {
 	return GetID((SensorId*) addr);
 }
 
+extern uint64 swap_endian_64(uint64 n);
 
 void SensorUpdate(SensorId* id) {
 	Sensor* sensor = sensorMap[*id];
@@ -55,14 +57,23 @@ void SensorUpdate(SensorId* id) {
 	}
 
 	sensor->lastPacketTime = time(NULL);
+	if(!sensor->isActive) {
+		sensor->isActive = true;
+
+		FILE* sensorLog = sensorLogSetup();
+		char* tstr = getCurrentTimeAsString();
+		fprintf(sensorLog, "%s:  sensorId = %lx, sensor now active.\n", tstr, swap_endian_64(id->uId));
+		delete[] tstr;
+
+		fclose(sensorLog);
+	}
 }
 
 void AddSensor(SensorId* id) {
 	if(sensorMap[*id]!=NULL) {
 		return;
 	}
-	
-	// Valgrind says this is definitely lost.
+
 	Sensor* sensor = new Sensor;
 	
 	memcpy(&sensor->id, id, sizeof(SensorId));
@@ -86,4 +97,20 @@ map<XBeeAddress, SensorId> GetXBeeAddressToSensorIdMap() {
 
 map<SensorId, Sensor*> GetSensorMap() {
 	return sensorMap;
+}
+
+#define MAX_SENSOR_LOG_SIZE_MB 4
+
+FILE* sensorLogSetup() {
+	FILE* sensorLog = fopen("sensors.log", "a+");
+	if(ftell(sensorLog) >= MAX_SENSOR_LOG_SIZE_MB*1024*1024) {
+		fclose(sensorLog);
+		sensorLog = fopen("sensors.log", "w");
+
+		char* tstr = getCurrentTimeAsString();
+		fprintf(sensorLog, "new log @ %s\n", tstr);
+		delete[] tstr;
+	}
+
+	return sensorLog;
 }

@@ -138,4 +138,6 @@ typedef union __PacketRev1 {
 // Flags
 #define PROBE_SIDE_INDICATOR (1<<0)
 
+void* sensor_scanning_thread(void* p);
+
 #endif

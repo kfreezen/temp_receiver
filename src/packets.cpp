@@ -8,11 +8,13 @@
 #include "settings.h"
 #include "sensor.h"
 #include "XBeeCommunicator.h"
+#include "util.h"
 
 #include <cstdio>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
+#include <unistd.h>
 
 #include <map>
 
@@ -186,6 +188,19 @@ uint64 swap_endian_64(uint64 u) {
 	return n0 | n1;
 }
 
+void logReceiverRequest(SensorId id, int wdtResetSpot) {
+	FILE* sensorLog = sensorLogSetup();
+	if(sensorLog == NULL) {
+		return;
+	}
+
+	char* timeStr = getCurrentTimeAsString();
+	fprintf(sensorLog, "%s:  sensorId = %lx, wdt-spot = %d\n", timeStr, swap_endian_64(id.uId), wdtResetSpot);
+	delete[] timeStr;
+
+	fclose(sensorLog);
+}
+
 void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
@@ -259,9 +274,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			}
 
 			// We need to put the sensor wdt reset spot in a file.
-			FILE* crashReports = fopen("crashReports", "a+");
-			fprintf(crashReports, "wdtResetSpot = %d, sensor = %lx\n", packet->requestReceiver.wdtResetSpot, swap_endian_64(sensorId.uId));
-			fclose(crashReports);
+			logReceiverRequest(sensorId, packet->requestReceiver.wdtResetSpot);
 
 			PacketRev1* reply = new PacketRev1;
 			memset(reply, 0, sizeof(PacketRev1));
@@ -445,5 +458,35 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 			SensorDB db;
 			db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
 		} break;
+	}
+}
+
+#define SENSOR_INACTIVITY_TIME 90
+
+extern SensorMap sensorMap;
+void* sensor_scanning_thread(void* p) {
+	while(1) {
+		SensorMap::iterator itr;
+		for(itr = sensorMap.begin(); itr != sensorMap.end(); itr++) {
+			if(itr->second == NULL) {
+				printf("Encountered NULL Sensor. %d\n", sensorMap.size());
+				continue;
+			}
+			
+			if(itr->second->lastPacketTime+90 < time(NULL) && itr->second->lastPacketTime && itr->second->isActive) {
+				FILE* sensorLog = sensorLogSetup();
+
+				char* timeStr = getCurrentTimeAsString();
+				fprintf(sensorLog, "%s:  sensorId = %lx. Sensor has gone %d seconds without replying.\n", timeStr, swap_endian_64(itr->first.uId), time(NULL) - itr->second->lastPacketTime);
+				delete[] timeStr;
+
+				itr->second->isActive = false;
+
+				fclose(sensorLog);
+			}
+			
+		}
+		
+		sleep(5);
 	}
 }

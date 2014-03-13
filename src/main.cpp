@@ -24,6 +24,7 @@
 #include "settings.h"
 #include "update.h"
 #include "test.h"
+#include "packets.h"
 
 using namespace std;
 
@@ -76,26 +77,6 @@ void init_sig_handlers() {
 }
 
 // END SIGNAL STUFF
-
-void* sensor_scanning_thread(void* p) {
-	SensorMap sensorMap = GetSensorMap();
-	while(1) {
-		SensorMap::iterator itr;
-		for(itr = sensorMap.begin(); itr != sensorMap.end(); itr++) {
-			if(itr->second == NULL) {
-				printf("Encountered NULL Sensor. %d\n", sensorMap.size());
-				continue;
-			}
-			
-			if(itr->second->lastPacketTime+90 < time(NULL) && itr->second->lastPacketTime) {
-				cout<< "Sensor has gone more than 90 seconds without replying.\n";
-			}
-			
-		}
-		
-		sleep(5);
-	}
-}
 
 void hexdump(void* ptr, int len) {
 	unsigned char* addr = (unsigned char*) ptr;
@@ -235,7 +216,7 @@ int main(int argc, char** argv) {
 	printf("We are go\n");
 
 	pthread_t thread;
-	//pthread_create(&thread, NULL, &sensor_scanning_thread, NULL);
+	pthread_create(&thread, NULL, &sensor_scanning_thread, NULL);
 
 	// TODO:  Add sensor config loading code here.
 

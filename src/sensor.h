@@ -11,6 +11,7 @@ using namespace std;
 typedef struct {
 	SensorId id;
 	int lastPacketTime;
+	bool isActive;
 } Sensor;
 
 typedef map<SensorId, Sensor*> SensorMap;
@@ -25,5 +26,7 @@ bool operator<(const SensorId& left, const SensorId& right);
 
 string GetID(SensorId* id);
 string GetXBeeID(XBeeAddress* addr);
+
+FILE* sensorLogSetup();
 
 #endif
