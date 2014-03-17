@@ -1,4 +1,5 @@
 #include "serial.h"
+#include "settings.h"
 
 // This is the linux implementation
 #include <cstdio>
@@ -17,7 +18,15 @@
 
 using namespace std;
 
+SerialPort::~SerialPort() {
+	close(this->portFileNo);
+	
+	delete[] this->savedPortName;
+}
+
 SerialPort::SerialPort(int baud) {
+	this->clearVars();
+
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
 	
@@ -31,6 +40,8 @@ SerialPort::SerialPort(int baud) {
 }
 
 SerialPort::SerialPort(string port, int baud) {
+	this->clearVars();
+
 	init(port, baud);
 }
 
@@ -40,8 +51,15 @@ SerialPort::SerialPort(string port, int baud) {
 void SerialPort::init(string port, int baud) {
 	printf("SerialPort::init\n");
 	
-	SerialPort::portFileNo = open(port.c_str(), O_RDWR | O_NONBLOCK);
-	
+	if(this->savedPortName != NULL) {
+		delete[] this->savedPortName;
+	}
+
+	this->portFileNo = open(port.c_str(), O_RDWR | O_NONBLOCK);
+	this->lastHeartbeat = time(NULL);
+	this->savedPortName = new char[strlen(port.c_str()) + 1];
+	strcpy(this->savedPortName, port.c_str());
+
 	// Here we want to set the attributes of our port as needed.
 	struct termios portOpts;
 	memset(&portOpts, 0, sizeof(struct termios));
@@ -91,18 +109,21 @@ void SerialPort::init(string port, int baud) {
 	
 	// Now set our serial input and output baud.
 	if(cfsetispeed(&portOpts, speedSelect)==-1) {
-		printf("cfsetispeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
+		printf("cfsetispeed(%p, %d) error, errno=%s\n", &portOpts, speedSelect, strerror(errno));
 		exit(1);
 	}
 	
 	if(cfsetospeed(&portOpts, speedSelect)==-1) {
-		printf("cfsetospeed(%p, %d) error, errno=%d\n", &portOpts, speedSelect, errno);
+		printf("cfsetospeed(%p, %d) error, errno=%s\n", &portOpts, speedSelect, strerror(errno));
 		exit(1);
 	}
 	
+	// Save the port options for heartbeats.
+	SerialPort::portOptions = portOpts;
+
 	// Write our modified options to the port's settings.
-	if(tcsetattr(SerialPort::portFileNo, TCSANOW, &portOpts)==-1) {
-		printf("tcsetattr(%d, %d, %p) error, errno=%d\n", SerialPort::portFileNo, TCSANOW, &portOpts);
+	if(tcsetattr(SerialPort::portFileNo, TCSANOW, &this->portOptions)==-1) {
+		printf("tcsetattr(%d, %d, %p) error, errno=%s\n", SerialPort::portFileNo, TCSANOW, &this->portOptions, strerror(errno));
 		exit(1);
 	}
 	
@@ -162,9 +183,13 @@ bool SerialPort::readByte(unsigned char* p_c) {
 int SerialPort::read(void* buffer, int len) {
 	int size = len;
 	while(size > 0) {
+		SerialPort::heartbeat();
 		size_t amount_read = ::read(portFileNo, buffer, size);
 	
-		if(amount_read < size) {
+		if(amount_read == -1) {
+			// Handle error.
+			printf("errno = %s\n", strerror(errno));
+		} else if(amount_read < size) {
 			int do_sleepwait = 0;
 			if(amount_read < size && amount_read != -1) {
 				// Probably because it's nonblocking.
@@ -207,6 +232,8 @@ int SerialPort::read(void* buffer, int len) {
 }
 
 void SerialPort::write(void const* buffer, int len) {
+	SerialPort::heartbeat();
+
 	::write(portFileNo, buffer, len);
 }
 
@@ -229,4 +256,51 @@ vector<string> findValidPorts(string portBase) {
 	delete[] buffer;
 
 	return retVector;
+}
+
+void SerialPort::heartbeat() {
+	if(time(NULL) >= SerialPort::lastHeartbeat + SerialPort::HEARTBEAT_TIME) {
+		::close(SerialPort::portFileNo);
+		
+		while(1) {
+			int retries = 3;
+
+			while(retries --) {
+				if(::open(SerialPort::savedPortName, O_RDWR | O_NONBLOCK) == -1) {
+					fprintf(stderr, "heartbeat failed.  err %s\n", strerror(errno));
+					// Wait for 30 seconds...
+					sleep(30);
+				} else {
+					SerialPort::lastHeartbeat = time(NULL);
+
+					// Set our saved port options, in case the port lost its settings.
+					if(tcsetattr(this->portFileNo, TCSANOW, &this->portOptions)==-1) {
+						printf("tcsetattr(%d, %d, %p) error, errno=%s\n", this->portFileNo, TCSANOW, &this->portOptions, strerror(errno));
+						exit(1);
+					}
+
+					break;
+				}
+			}
+
+			if(retries == 0) {
+				// we need to take more drastic action.
+				if(Settings::get("restart-on-failed-heartbeat") == "true") {
+					// since the settings have specified restart on failed heartbeat,
+					// we issue a reboot.
+
+					system("reboot");
+				} else {
+					// There's not really anything to do but keep trying.
+					retries = 5;
+				}
+			} else {
+				break;
+			}
+		}
+	}
+}
+
+void SerialPort::clearVars() {
+	this->savedPortName = NULL;
 }

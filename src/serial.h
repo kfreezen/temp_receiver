@@ -14,6 +14,10 @@
 
 #include <pthread.h>
 
+#include <termios.h>
+
+#include "globaldef.h"
+
 using std::vector;
 using std::string;
 
@@ -37,6 +41,8 @@ class SerialPort {
 		SerialPort(string port, int baud);
 		SerialPort(int baud);
 		
+		~SerialPort();
+
 		int reinit();
 		
 		bool readByte(unsigned char* p_c);
@@ -54,9 +60,14 @@ class SerialPort {
 		unsigned int getCharTmo() {
 			return charReadTimeout;
 		}
+
+		// Attempts to reopen the serial port file.
+		void heartbeat();
+
 	private:
 		void init(string port, int baud);
-
+		void clearVars();
+		
 		//FILE* portFile;
 		int portFileNo;
 
@@ -71,6 +82,15 @@ class SerialPort {
 		struct timespec __timeout_struct;
 		
 		int mBaud;
+
+		// Heartbeat reconnection related members.
+		uint64 lastHeartbeat;
+		static const int HEARTBEAT_TIME = 30;
+
+		// The purpose of this is to save the serial port's port options to reapply on heartbeat reconnections.
+		struct termios portOptions;
+
+		char* savedPortName;
 };
 
 #endif
