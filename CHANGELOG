@@ -1,0 +1,11 @@
+Changes from version 0.1.1 (version-0.1 branch) to version 0.1.2 (version-0.1.2)
+
+Fixed issue #2, which was a crash caused by a computer's local proxy giving the receiver program a big HTML file.
+
+Resolved issue #3.  Added CURL error logging to allow us to see when the receiver fails to transimt data to the server.
+
+Resolved issue #5.  Improved sensor logging to include inactivity and resets (in a nutshell)
+
+Fixed issue #7.  The xbee would occasionally disconnect, and the program had no way to detect this.  Issue was fixed basically by making the program reopen to the xbee's port file every 30 seconds.
+
+Fixed issue #6.  CURLBuffer misrepresented the capacity of its buffer.
