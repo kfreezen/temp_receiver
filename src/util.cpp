@@ -1,7 +1,9 @@
 #include "util.h"
+#include "logger.h"
 
 #include <ctime>
 #include <cstring>
+#include <errno.h>
 
 struct timespec now() {
 	struct timespec nowTime;
@@ -19,12 +21,11 @@ struct timespec add_timespec(struct timespec a, struct timespec b) {
 	return sp;
 }
 
-char* getCurrentTimeAsString() {
+
+char* getTimeAsString(time_t timestamp) {
 	char* time_buf = new char[128];
 
-	time_t currentTime;
-	currentTime = time(NULL);
-	ctime_r(&currentTime, time_buf);
+	ctime_r(&timestamp, time_buf);
 	
 	int strlength = strlen(time_buf);
 
@@ -33,4 +34,42 @@ char* getCurrentTimeAsString() {
 	}
 
 	return time_buf;
+}
+
+char* getCurrentTimeAsString() {
+	return getTimeAsString(time(NULL));
+}
+
+int nsleep(uint64_t ns) {
+	struct timespec _sleep_time, remaining;
+
+	_sleep_time.tv_nsec = ns % 1000000000L;
+	_sleep_time.tv_sec = ns / 1000000000L;
+
+	if(nanosleep(&_sleep_time, &remaining) == -1) {
+		if(errno == EINTR) {
+			while(1) {
+				if(nanosleep(&remaining, &remaining) == -1) {
+					if(errno != EINTR) {
+						return -1;
+					}
+				}
+			}
+		} else {
+			return -1;
+		}
+	}
+}
+
+char* getErrorString() {
+	const int ERRSTR_BUFSIZE = 256;
+
+	char* errstrbuf = new char[ERRSTR_BUFSIZE];
+	int err = errno;
+
+	if(strerror_r(errno, errstrbuf, ERRSTR_BUFSIZE) != 0) {
+		snprintf(errstrbuf, ERRSTR_BUFSIZE, "%d", err);
+	}
+
+	return errstrbuf;
 }

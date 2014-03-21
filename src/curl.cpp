@@ -310,10 +310,26 @@ bool curlTest() {
 	
 	buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
 
-	const char* logMsg = "test log entry";
-	logInternetError(0, logMsg, strlen(logMsg));
-	logInternetError(987654321, logMsg, strlen(logMsg));
-	logInternetError(123456789, NULL, 0);
+	if(buf) {
+		delete buf;
+	}
 
+	if(buf2) {
+		delete buf2;
+	}
+
+	// Now do the same on a nonexistant server.
+	buf = curl.get("localhost:8090", "");
+
+	buf2 = curl.post("localhost:8090", "{\"arg0\": \"hi\"}");
+
+	if(buf) {
+		delete buf;
+	}
+
+	if(buf2) {
+		delete buf2;
+	}
+	
 	return true;
 }

@@ -5,6 +5,8 @@
 
 #include "xbee.h"
 
+#define MAX_GENERIC_LOG_SIZE_MB 4
+
 // Note that this structure is subject to change.
 typedef struct {
 	XBeeAddress sensorId;
@@ -24,5 +26,11 @@ void Logger_AddEntry(LogEntry* entry, int command);
 LogEntry* Logger_FindEntry(XBeeAddress* address, time_t time);
 
 LogEntry* Logger_GetEntry(int itr);
+
+#define INFO 1
+#define WARNING 3
+#define ERROR 5
+
+void Logger_Print(int logType, time_t timestamp, const char* logFmt, ...);
 
 #endif
