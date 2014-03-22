@@ -26,6 +26,18 @@ public:
 	static void* CommThread(void* arg);
 	static void* HeartbeatThread(void* arg);
 
+	bool isDisconnected;
+	const char* disconnectCause;
+
+	void clearErrors() {
+		this->isDisconnected = false;
+		this->disconnectCause = "";
+	}
+
+	int getSocketFd() {
+		return this->socketFd;
+	}
+	
 private:
 	const static int SERVER_PORT = 14440;
 	const static int HEARTBEAT_SECONDS = 10;
@@ -44,7 +56,7 @@ typedef struct {
 	int num;
 } StringArray;
 
-class Line {
+/*class Line {
 public:
 	Line() {
 		this->initValues();
@@ -164,11 +176,15 @@ private:
 
 	char* id;
 	char* data;
-};
+};*/
 
 // Requests
 #define CONNECT "CONNECT"
 #define HEARTBEAT "HEARTBEAT"
+
+#define UNHANDLED_RECV_ERROR -2
+#define SOFTWARE_DISCONNECT -1
+#define SUCCESS 0
 
 class RSCPContent {
 public:
@@ -215,10 +231,11 @@ public:
 	char* getContentAsString();
 
 	void loadFromString(const char* str);
-	void loadFromSocket(int socketFd);
+
+	int loadFromComm(ServerComm* comm);
+	int loadFromSocket(int socketFd);
 
 	int sendTo(int socketFd);
-	
 private:
 	bool assembledContentOutOfDate;
 	char* assembledContent;

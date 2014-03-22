@@ -66,7 +66,20 @@ void RSCPContent::loadFromString(const char* protected_str) {
 	delete[] str;
 }
 
-void RSCPContent::loadFromSocket(int socketFd) {
+int RSCPContent::loadFromComm(ServerComm* comm) {
+	int err = this->loadFromSocket(comm->getSocketFd());
+	if(err == UNHANDLED_RECV_ERROR) {
+		comm->isDisconnected = true;
+		comm->disconnectCause = "unknown";
+	} else if(err == SOFTWARE_DISCONNECT) {
+		comm->isDisconnected = true;
+		comm->disconnectCause = "software";
+	}
+}
+
+int RSCPContent::loadFromSocket(int socketFd) {
+	printf("loadFromSocket\n");
+
 	// Why am I using a CURLBuffer?  Because it has properties I want in this function.
 	CURLBuffer* buffer = new CURLBuffer;
 	buffer->init(INITIAL_BYTES + 1);
@@ -77,6 +90,8 @@ void RSCPContent::loadFromSocket(int socketFd) {
 		}
 
 		int receivedBytes = recv(socketFd, buffer->buffer+buffer->length, buffer->capacity - buffer->length, 0);
+		printf("receivedBytescheck = %d\n", receivedBytes);
+
 		if(receivedBytes < 0) {
 			if(errno == EAGAIN || errno == EWOULDBLOCK) {
 				// No data in the buffer, wait about 100 ms.
@@ -84,11 +99,16 @@ void RSCPContent::loadFromSocket(int socketFd) {
 				continue;
 			} else {
 				Logger_Print(ERROR, time(NULL), "recv() error in getPacket() %s\n", strerror(errno));
-				return;
+				return UNHANDLED_RECV_ERROR;
 			}
+		} else if(receivedBytes == 0) {
+			// This indicates that the socket was disconnected, most likely by software.
+			return SOFTWARE_DISCONNECT;
 		} else {
+			buffer->length += receivedBytes;
+			
 			// We need to see if we have received end-of-content, which is two newlines in a row.
-			if(buffer->buffer[buffer->length-2] == '\n' && buffer->buffer[buffer->length-1] == '\n') {
+			if(buffer->length >= 2 && buffer->buffer[buffer->length-2] == '\n' && buffer->buffer[buffer->length-1] == '\n') {
 				// Finished with buffer.
 				break;
 			}
@@ -103,11 +123,16 @@ void RSCPContent::loadFromSocket(int socketFd) {
 	this->loadFromString(buffer->buffer);
 
 	delete buffer;
+
+	return SUCCESS;
 }
 
 #define ERRSTR_SIZE 256
 void* ServerComm::CommThread(void* arg) {
 	ServerComm* comm = (ServerComm*) arg;
+
+doRetry:
+	comm->clearErrors();
 
 	comm->socketFd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -176,7 +201,13 @@ void* ServerComm::CommThread(void* arg) {
 		send(comm->socketFd, contentStr, strlen(contentStr), 0);
 		delete[] contentStr;*/
 
-		content.loadFromSocket(comm->socketFd);
+		content.loadFromComm(comm);
+		if(comm->isDisconnected == true) {
+			// Let's wait thirty seconds and retry it.
+			close(comm->socketFd);
+			sleep(30);
+			goto doRetry;
+		}
 
 		const char* ack = content.getLineData("ack");
 		if(ack == NULL || strcmp(ack, "success")) {
@@ -212,9 +243,13 @@ void* ServerComm::HeartbeatThread(void* arg) {
 		int secondsToSleep = comm->lastHeartbeat + ServerComm::HEARTBEAT_SECONDS - time(NULL);
 		sleep(secondsToSleep);
 
+		printf("doing send\n");
+
 		pthread_mutex_lock(&comm->socketMutex);
 		heartbeat.sendTo(comm->socketFd);
 		pthread_mutex_unlock(&comm->socketMutex);
+		
+		comm->lastHeartbeat = time(NULL);
 	}
 }
 
