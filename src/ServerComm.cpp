@@ -26,6 +26,8 @@
 
 pthread_mutex_t* logMutex = NULL;
 
+ServerComm* ServerComm::comm = NULL;
+
 ServerComm::ServerComm() {
 	// Make sure logMutex is not NULL.
 	if(logMutex == NULL) {
@@ -34,10 +36,22 @@ ServerComm::ServerComm() {
 	}
 
 	pthread_mutex_init(&this->socketMutex, NULL);
+	this->heartbeatThread = NULL;
+
+	if(ServerComm::comm == NULL) {
+		ServerComm::comm = this;
+	}
+
+	// Initialize our condition variable for sends.
+	pthread_cond_init(&this->sendCond, NULL);
+	// And its mutex.
+	pthread_mutex_init(&this->sendCondMutex, NULL);
+
 }
 
 void ServerComm::start() {
-	pthread_create(&this->commThread, NULL, ServerComm::CommThread, (void*) this);
+	this->commThread = new pthread_t;
+	pthread_create(this->commThread, NULL, ServerComm::CommThread, (void*) this);
 }
 
 #define INITIAL_BYTES 256
@@ -127,12 +141,26 @@ int RSCPContent::loadFromSocket(int socketFd) {
 	return SUCCESS;
 }
 
+void ServerComm::cleanup() {
+	this->clearErrors();
+	if(this->heartbeatThread != NULL) {
+		this->heartbeatThreadComm = ServerComm::QUIT;
+		while(this->heartbeatThreadComm != ServerComm::DONE) {
+		}
+
+		delete this->heartbeatThread;
+		this->heartbeatThread = NULL;
+	}
+
+	this->heartbeatThreadComm = 0;
+}
+
 #define ERRSTR_SIZE 256
 void* ServerComm::CommThread(void* arg) {
 	ServerComm* comm = (ServerComm*) arg;
 
 doRetry:
-	comm->clearErrors();
+	comm->cleanup();
 
 	comm->socketFd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -156,7 +184,9 @@ doRetry:
 	int gaiError = getaddrinfo(Settings::get("server").c_str(), portStr, &hint, &result);
 	if(gaiError != 0) {
 		Logger_Print(ERROR, time(NULL), "getaddrinfo error %s\n", gai_strerror(gaiError));
-		return NULL;
+		
+		sleep(RETRY_WAIT);
+		goto doRetry;
 	}
 
 	if(connect(comm->socketFd, result->ai_addr, result->ai_addrlen) < 0) {
@@ -164,7 +194,8 @@ doRetry:
 		Logger_Print(ERROR, time(NULL), "Connection failed.  error %s\n", errstr);
 		delete[] errstr;
 
-		return NULL;
+		sleep(RETRY_WAIT);
+		goto doRetry;
 	} else {
 		
 		// Now that the connect has been completed, we place
@@ -223,12 +254,76 @@ doRetry:
 		comm->lastHeartbeat = time(NULL);
 	}
 
+	if(comm->heartbeatThread != NULL) {
+		// close the heartbeat thread.
+		comm->heartbeatThreadComm = ServerComm::QUIT;
+		while(comm->heartbeatThreadComm != ServerComm::DONE) {
+
+		}
+
+		delete comm->heartbeatThread;
+		comm->heartbeatThread = NULL;
+	}
+
+	comm->heartbeatThread = new pthread_t;
+
 	// Spawn our heartbeat thread.
-	pthread_create(&comm->heartbeatThread, NULL, ServerComm::HeartbeatThread, comm);
+	pthread_create(comm->heartbeatThread, NULL, ServerComm::HeartbeatThread, comm);
+
+	int num_einvals = 0;
 
 	while(1) {
-		// TODO:  Write the logic loop.
-		sleep(1); // filler, so this doesn't kill machines.
+		// First we check to see if the socket has been disconnected.
+		if(comm->isDisconnected == true) {
+			goto doRetry;
+		}
+
+		// Go through our deque of contents to send.
+		while(!comm->toSend.empty()) {
+			pthread_mutex_lock(&comm->sendLock);
+			RSCPContent* content = comm->toSend.front();
+			comm->toSend.pop_front();
+			pthread_mutex_unlock(&comm->sendLock);
+
+			printf("doing content send.\n");
+			content->sendTo(comm->socketFd);
+		}
+
+		struct timespec abstime;
+		struct timespec timeToWait;
+		timeToWait.tv_sec = 1;
+		timeToWait.tv_nsec = 0;
+
+		clock_gettime(CLOCK_REALTIME, &abstime);
+		
+		abstime = add_timespec(abstime, timeToWait);
+
+		int timedwait_error = pthread_cond_timedwait(&comm->sendCond, &comm->sendCondMutex, &abstime);
+
+		if(timedwait_error != 0) {
+			// Make sure the error isn't timed out, because timedout is innocuous
+			// in this usage.
+			if(timedwait_error != ETIMEDOUT) {
+				if(timedwait_error == EINVAL) {
+					printf("%d einvals have now occurred.  Attempting fix\n", ++num_einvals);
+					// "EINVAL The value specified by cond, mutex, or abstime is invalid" (from man page),
+					// so we should try reinitializing the condition and the mutex variables.
+					pthread_mutex_lock(&comm->sendCondMutex);
+					int destroy_err = pthread_mutex_destroy(&comm->sendCondMutex);
+					if(destroy_err != 0) {
+						Logger_Print(ERROR, time(NULL), "Error destroying mutex.  %d\n", destroy_err);
+					}
+
+					destroy_err = pthread_cond_destroy(&comm->sendCond);
+					if(destroy_err != 0) {
+						Logger_Print(ERROR, time(NULL), "Error destroying cond variable.  %d\n", destroy_err);
+					}
+
+					pthread_mutex_init(&comm->sendCondMutex, NULL);
+					pthread_cond_init(&comm->sendCond, NULL);
+				}
+			}
+		}
 	}
 
 }
@@ -239,18 +334,33 @@ void* ServerComm::HeartbeatThread(void* arg) {
 	RSCPContent heartbeat;
 	heartbeat.setRequest(HEARTBEAT);
 
-	while(1) {
+	while(comm->heartbeatThreadComm != QUIT) {
 		int secondsToSleep = comm->lastHeartbeat + ServerComm::HEARTBEAT_SECONDS - time(NULL);
 		sleep(secondsToSleep);
 
-		printf("doing send\n");
-
 		pthread_mutex_lock(&comm->socketMutex);
-		heartbeat.sendTo(comm->socketFd);
+		if(comm->isDisconnected == true) {
+			// wait a few seconds for the main loop to attempt to reestablish the socket.
+			sleep(10);
+			continue;
+		} else {
+			printf("doing send\n");
+		}
+
+		if(heartbeat.sendTo(comm->socketFd) == -1) {
+			if(errno == EPIPE) {
+				comm->isDisconnected = true;
+				comm->disconnectCause = "unknown";
+			}
+		} else {
+			comm->lastHeartbeat = time(NULL);
+		}
 		pthread_mutex_unlock(&comm->socketMutex);
 		
 		comm->lastHeartbeat = time(NULL);
 	}
+
+	comm->heartbeatThreadComm = ServerComm::DONE;
 }
 
 int RSCPContent::sendTo(int socketFd) {
@@ -456,6 +566,18 @@ void ServerCommTests() {
 
 	serverComm->start();
 	printf("started serverComm\n");
+
+	RSCPContent* logContent = new RSCPContent;
+	logContent->setRequest("LOG");
+	logContent->addLine("message", "testing LOG request.");
+	logContent->addLine("level", "INFO");
+
+	char* tstamp = new char[32];
+	snprintf(tstamp, 32, "%ld", time(NULL));
+	logContent->addLine("timestamp", tstamp);
+	delete[] tstamp;
+
+	serverComm->sendContent(logContent);
 
 	while(1) {
 		sleep(1);

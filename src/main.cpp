@@ -86,13 +86,58 @@ void hexdump(void* ptr, int len) {
 	}
 }
 
+void initReceiverId() {
+	// Load our application receiver ID.
+	FILE* idFile = fopen("receiver.id", "r");
+	if(idFile == NULL) {
+		idFile = fopen("receiver.id", "w");
+
+		SimpleCurl* _curl = new SimpleCurl();
+		string url = Settings::get("server") + string("/api/getid");
+		CURLBuffer* buf = _curl->get(url, "");
+		
+		if(buf == NULL) {
+			printf("warning:  Something went wrong.  buf should not be null.\n");
+		} else {
+			printf("%s\n", buf->buffer);
+			fwrite(buf->buffer, 1, strlen(buf->buffer), idFile);
+			char _null = 0;
+			fwrite(&_null, 1, 1, idFile);
+			receiverId = string(buf->buffer);
+		}
+		
+		printf("server=%s", url.c_str());
+		
+		if(buf != NULL) {
+			delete buf;
+		}
+
+		delete _curl;
+	} else {
+		// Get length of file
+		fseek(idFile, 0, SEEK_END);
+		int end = ftell(idFile);
+		fseek(idFile, 0, SEEK_SET);
+		
+		char* buf = new char [end + 1];
+		
+		memset(buf, 0, end + 1);
+		
+		fread(buf, 1, end, idFile);
+		
+		receiverId = string(buf);
+		delete[] buf;
+	}
+
+	fclose(idFile);
+}
+
 extern unsigned swap_endian_32(unsigned n);
 
 #define ENABLE_DAEMON 1
 extern int xbeeDebug;
 extern int noWeb;
 
-// URGENT-TODO:  We do not have the xbee comm code completely revised yet.
 int main(int argc, char** argv) {
 	// Not sure if this setvbuf is necessary anymore.
 	setvbuf(stdout, NULL, _IONBF, 0);
@@ -213,6 +258,8 @@ int main(int argc, char** argv) {
 	comm->startDispatch();
 	comm->startHandler();
 
+	initReceiverId();
+	
 	printf("We are go\n");
 
 	pthread_t thread;
@@ -239,50 +286,7 @@ int main(int argc, char** argv) {
 	
 	delete[] buffer;
 
-	// Load our application receiver ID.
-	FILE* idFile = fopen("receiver.id", "r");
-	if(idFile == NULL) {
-		idFile = fopen("receiver.id", "w");
-
-		SimpleCurl* _curl = new SimpleCurl();
-		string url = Settings::get("server") + string("/api/getid");
-		CURLBuffer* buf = _curl->get(url, "");
-		
-		if(buf == NULL) {
-			printf("warning:  Something went wrong.  buf should not be null.\n");
-		} else {
-			printf("%s\n", buf->buffer);
-			fwrite(buf->buffer, 1, strlen(buf->buffer), idFile);
-			char _null = 0;
-			fwrite(&_null, 1, 1, idFile);
-			receiverId = string(buf->buffer);
-		}
-		
-		printf("server=%s", url.c_str());
-		
-		if(buf != NULL) {
-			delete buf;
-		}
-
-		delete _curl;
-	} else {
-		// Get length of file
-		fseek(idFile, 0, SEEK_END);
-		int end = ftell(idFile);
-		fseek(idFile, 0, SEEK_SET);
-		
-		char* buf = new char [end + 1];
-		
-		memset(buf, 0, end + 1);
-		
-		fread(buf, 1, end, idFile);
-		
-		receiverId = string(buf);
-		delete[] buf;
-	}
-
-	fclose(idFile);
-
+	
 	printf("We are starting the loop\n");
 
 	while(1) {
