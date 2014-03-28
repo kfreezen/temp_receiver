@@ -225,6 +225,27 @@ uint32 swap_endian_32(uint32 n) {
     return r;
 }
 
+int ssl_itr = 0;
+
+#define SIGNALSTRENGTHS_LOG_MAX_LENGTH_MB 4
+
+void logSignalStrength(SensorId id, int dbm) {
+	FILE* ss_log;
+
+	char* timeStr = getCurrentTimeAsString();
+	ss_log = fopen("signalstrengths.log", "a");
+	if(ftell(ss_log) >= SIGNALSTRENGTHS_LOG_MAX_LENGTH_MB * 1024 * 1024) {
+		fclose(ss_log);
+		ss_log = fopen("signalstrengths.log", "w");
+		fprintf(ss_log, "new log at %s.\n", timeStr);
+	}
+
+	fprintf(ss_log, "%s: id=%x: %d\n", timeStr, (unsigned int) id.uId, dbm);
+	delete[] timeStr;
+
+	fclose(ss_log);
+}
+
 int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct) {
 	int returnValue = 0;
 	
@@ -237,6 +258,10 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 	switch(apiFrame->rx.rev0.frame_type) {
 		case API_RX_INDICATOR: {
 			// TODO:  We need to change this handle packet function to go through the XBeeCommunicator*
+			
+			// We don't need to wait because the handler takes care of it.
+			XBAPI_Command(comm, API_CMD_ATDB, NULL, 0);
+
 			HandlePacket(comm, apiFrame);
 			return 1;
 		}
@@ -263,6 +288,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 				case 1:
 					*((unsigned char*)data) = apiFrame->atCmdResponse.data_checksum[0];
+					printf("Got it 1.  data = %x\n", *((byte*)data));
 					break;
 					
 				case 2:
@@ -287,6 +313,21 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 
 			returnValue = apiFrame->atCmdResponse.commandStatus;
 			
+			if(apiFrame->atCmdResponse.command == API_CMD_ATDB) {
+				if(returnValue == 0) {
+					int signalStrength;
+					signalStrength = *((byte*) data);
+
+					// Now we need to log the signal strength.
+					logSignalStrength(apiFrame->rx.rev1.packet.header.sensorId, -signalStrength);
+					printf("c__ %x, %d, %d\n", apiFrame->atCmdResponse.command, returnValue, -signalStrength);
+				} else {
+					printf("command error %d\n", returnValue);
+				}
+			} else {
+				printf("command = %x\n", apiFrame->atCmdResponse.command);
+			}
+
 			// TODO:  Add retry code.
 			return 1;
 		} break;
@@ -351,36 +392,39 @@ int XBAPI_CommandInternal(SerialPort* port, unsigned short command, unsigned* da
     apiFrame.buffer[total_packet_length] = checksum(apiFrame.buffer+3, total_packet_length);
     */
     
-    Frame apiFrame;
-    
-    // This bad.  We trust length to be one we can handle.  FIXME
-	int atCmdLength = sizeof(apiFrame.atCmdNoData) + length;
+    Frame* apiFrame = new Frame;
+    memset(apiFrame, 0, sizeof(Frame));
 
-    apiFrame.atCmd.start_delimiter = 0x7e;
-    apiFrame.atCmd.length[0] = (atCmdLength-4) >> 8;
-    apiFrame.atCmd.length[1] = (atCmdLength-4) & 0xFF;
-    apiFrame.atCmd.frame_type = API_AT_CMD_FRAME;
-    apiFrame.atCmd.frame_id = id;
-    apiFrame.atCmd.command = command;
+    comm->origFrame = apiFrame;
+
+    // This bad.  We trust length to be one we can handle.  FIXME
+	int atCmdLength = sizeof(apiFrame->atCmdNoData) + length;
+
+    apiFrame->atCmd.start_delimiter = 0x7e;
+    apiFrame->atCmd.length[0] = (atCmdLength-4) >> 8;
+    apiFrame->atCmd.length[1] = (atCmdLength-4) & 0xFF;
+    apiFrame->atCmd.frame_type = API_AT_CMD_FRAME;
+    apiFrame->atCmd.frame_id = id;
+    apiFrame->atCmd.command = command;
     
 	printf("command frame id = %x\n", id);
 
 	if(data) {
-		apiFrame.atCmd.data = swap_endian_32(*data);
+		apiFrame->atCmd.data = swap_endian_32(*data);
    	}
 
-    byte calc_checksum = checksum(apiFrame.buffer+3, atCmdLength-4);
-    byte check = doChecksumVerify(apiFrame.buffer+3, atCmdLength-4, calc_checksum);
+    byte calc_checksum = checksum(apiFrame->buffer+3, atCmdLength-4);
+    byte check = doChecksumVerify(apiFrame->buffer+3, atCmdLength-4, calc_checksum);
     
     if(length != 0) {
-        apiFrame.atCmd.checksum = calc_checksum;
+        apiFrame->atCmd.checksum = calc_checksum;
     } else {
-        apiFrame.atCmdNoData.checksum = calc_checksum;
+        apiFrame->atCmdNoData.checksum = calc_checksum;
     }
 	
-	hexdump(&apiFrame.atCmd, sizeof(apiFrame.atCmd));
+	hexdump(&apiFrame->atCmd, sizeof(apiFrame->atCmd));
 
-    port->write(apiFrame.buffer, atCmdLength);
+    port->write(apiFrame->buffer, atCmdLength);
 
     /*if(id) {
         return XBAPI_HandleFrameEx(port, data, 4, API_AT_CMD_RESPONSE);

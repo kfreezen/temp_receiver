@@ -24,6 +24,7 @@
 
 #define API_CMD_ATSL 0x4C53
 #define API_CMD_ATSH 0x4853
+#define API_CMD_ATDB 0x4244
 
 #define TRANSMIT_SUCCESS 0x00
 #define MAC_ACK_FAIL 0x01

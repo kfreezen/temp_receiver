@@ -259,7 +259,7 @@ int main(int argc, char** argv) {
 	comm->startHandler();
 
 	initReceiverId();
-	
+
 	printf("We are go\n");
 
 	pthread_t thread;
@@ -276,11 +276,12 @@ int main(int argc, char** argv) {
 	comm->waitCommStruct(id1);
 	XBeeCommStruct* commStruct0 = comm->getCommStruct(id0);
 	XBeeCommStruct* commStruct1 = comm->getCommStruct(id1);
-	comm->freeCommStruct(id0);
-	comm->freeCommStruct(id1);
 	
 	buffer[1] = swap_endian_32(*((unsigned*)commStruct0->replyData));
 	buffer[0] = swap_endian_32(*((unsigned*)commStruct1->replyData));
+	
+	comm->freeCommStruct(id0);
+	comm->freeCommStruct(id1);
 	
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	

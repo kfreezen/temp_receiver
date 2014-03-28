@@ -108,6 +108,21 @@ XBeeCommStruct* XBeeCommunicator::getCommStruct(int id) {
 }
 
 void XBeeCommunicator::freeCommStruct(int id) {
+	XBeeCommStruct* commStruct = this->getCommStruct(id);
+	if(commStruct->replyData != NULL) {
+		delete (uint32*) commStruct->replyData;
+		commStruct->replyData = NULL;
+	}
+
+	if(commStruct->origFrame != NULL) {
+		delete commStruct->origFrame;
+		commStruct->origFrame = NULL;
+	}
+
+	if(commStruct->replyFrame != NULL) {
+		delete commStruct->replyFrame;
+		commStruct->replyFrame = NULL;
+	}
 	(*this->xbeeCommBits)[id - 1] = false;
 }
 
@@ -152,6 +167,8 @@ int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
 
 void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 	while(1) {
+		bool commStructAllocated = false;
+
 		// Read frame in.
 		Frame* frame = new Frame;
 		memset(frame, 0, sizeof(Frame));
@@ -165,8 +182,11 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		XBeeCommStruct* commStruct;
 
 		if(commId > 0) {
+			commStructAllocated = false;
 			commStruct = &comm->xbeeComms[commId-1];
 		} else {
+			commStructAllocated = true;
+
 			// There are no valid commStructs for this, we should just create
 			// a stub one.
 			commStruct = new XBeeCommStruct;
@@ -208,6 +228,10 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 			} else {
 				printf("commStruct->origFrame = %p\n", commStruct->origFrame);
 			}
+		}
+
+		if(commStructAllocated) {
+			delete commStruct;
 		}
 	}
 }
