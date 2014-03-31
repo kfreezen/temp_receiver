@@ -201,6 +201,8 @@ void logReceiverRequest(SensorId id, int wdtResetSpot) {
 	fclose(sensorLog);
 }
 
+#define MAX_DIAG_LOG_SIZE_MB 4
+
 void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
@@ -221,6 +223,29 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	}
 
 	switch(packet->header.command) {
+		case ERROR_REPORT: {
+			Logger_Print(ERROR, time(NULL), "Error %d.  Data=%x\n", packet->errReport.error, packet->errReport.data);
+		} break;
+
+		case DIAG_REPORT: {
+			FILE* diagLog = fopen("diag.log", "a");
+			
+			char* tstr = getCurrentTimeAsString();
+
+			if(ftell(diagLog) >= MAX_DIAG_LOG_SIZE_MB * 1024 * 1024) {
+				fclose(diagLog);
+				fopen("diag.log", "w");
+				fprintf(diagLog, "new log @ %s\n", tstr);	
+			}
+
+			
+			fprintf(diagLog, "%s:\n", tstr);
+			delete[] tstr;
+
+			fhexdump(diagLog, &packet->diagReport, sizeof(packet->diagReport));
+			fclose(diagLog);
+		} break;
+
 		case RANGE_TEST: {
 			XBeeAddress xbee_addr;
 			xbee_addr = apiFrame->rx.rev1.source_address;
@@ -490,4 +515,16 @@ void* sensor_scanning_thread(void* p) {
 		
 		sleep(5);
 	}
+}
+
+const char* errorReportStrings[] = {
+	"SUCCESS",
+	"ADC_PVREF_TOO_LOW",
+	"ADC_CONVERSION_TIMEOUT",
+	"FVRRDY_TIMEOUT",
+	"REQUEST_RECEIVER_TIMEOUT"
+};
+
+const char* GetErrorReportStr(int err) {
+	return errorReportStrings[err];
 }

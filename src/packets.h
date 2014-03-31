@@ -4,7 +4,8 @@
 #define TEMP_REPORT 0x00
 #define REPORT 0x00
 
-#define CALIBRATE 0x01
+#define ERROR_REPORT 0x01
+#define DIAG_REPORT 0x02
 
 #define REQUEST_RECEIVER 0x04
 #define RECEIVER_ACK 0x04
@@ -84,18 +85,18 @@ typedef union __PacketRev0 {
                 word interval;
             } interval;
 
-            struct {
-                word networkID;
-                byte preambleID;
-            } set_id;
+			struct {
+				word networkID;
+				byte preambleID;
+			} set_id;
 
-            struct {
-                byte reserved[24];
-            } requestReceiver;
+			struct {
+				byte reserved[24];
+			} requestReceiver;
 
-            struct {
-            	XBeeAddress receiverAddr;
-            } receiverAck;
+			struct {
+				XBeeAddress receiverAddr;
+			} receiverAck;
 
         } __attribute__((packed));
     } __attribute__((packed));
@@ -129,11 +130,42 @@ typedef union __PacketRev1 {
 			struct {
 				byte reserved[32];
 			} receiverAck;
+
+			struct {
+				unsigned char PORTA, PORTB, PORTC, PORTD, PORTE;
+				unsigned char TRISA, TRISB, TRISC, TRISD, TRISE;
+				unsigned char ANSELA, ANSELB, ANSELC, ANSELD, ANSELE;
+				unsigned char APFCON1;
+				unsigned char BAUD1CON;
+				unsigned char SP1BRGL, SP1BRGH;
+				unsigned char RC1STA, TX1STA;
+				unsigned char TMR1L, TMR1H;
+				unsigned char T1CON, T1GCON;
+				unsigned char OPTION_REG;
+				unsigned char INTCON;
+				unsigned char PIE1, PIR1;
+				unsigned char STATUS;
+				unsigned char reserved;
+				unsigned char reservedForExtendedDiagReport;
+            } diagReport;
+
+			struct {
+				unsigned short error;
+				unsigned long data;
+			} errReport;
 		} __attribute__((packed));
     } __attribute__((packed));
 
     byte packet_data[48];
 } PacketRev1;
+
+#define ERR_SUCCESS 0x0000
+#define ADC_PVREF_TOO_LOW 0x0001
+#define ADC_CONVERSION_TIMEOUT 0x0002
+#define FVRRDY_TIMEOUT 0x0003
+#define REQUEST_RECEIVER_TIMEOUT 0x0004
+
+const char* GetErrorReportStr(int err);
 
 // Flags
 #define PROBE_SIDE_INDICATOR (1<<0)
