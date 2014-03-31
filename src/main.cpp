@@ -78,14 +78,6 @@ void init_sig_handlers() {
 
 // END SIGNAL STUFF
 
-void hexdump(void* ptr, int len) {
-	unsigned char* addr = (unsigned char*) ptr;
-	int i;
-	for(i=0; i<len; i++) {
-		printf("%x%c", addr[i], (i%16) ? ' '  : '\n');
-	}
-}
-
 void initReceiverId() {
 	// Load our application receiver ID.
 	FILE* idFile = fopen("receiver.id", "r");

@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <ctime>
+#include <cstdio>
 
 #include "globaldef.h"
 
@@ -18,5 +19,8 @@ char* getTimeAsString(time_t timestamp);
 int nsleep(uint64_t ns);
 
 char* getErrorString();
+
+void hexdump(void* ptr, int len);
+void fhexdump(FILE* f, void* ptr, int len);
 
 #endif

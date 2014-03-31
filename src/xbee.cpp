@@ -10,6 +10,7 @@
 #include "globaldef.h"
 #include "packet_defs.h"
 #include "util.h"
+#include "sensor.h"
 
 #define START_DELIMITER 0x7e
 
@@ -240,7 +241,7 @@ void logSignalStrength(SensorId id, int dbm) {
 		fprintf(ss_log, "new log at %s.\n", timeStr);
 	}
 
-	fprintf(ss_log, "%s: id=%x: %d\n", timeStr, (unsigned int) id.uId, dbm);
+	fprintf(ss_log, "%s: id=%s: %d\n", timeStr, GetID(&id).c_str(), dbm);
 	delete[] timeStr;
 
 	fclose(ss_log);

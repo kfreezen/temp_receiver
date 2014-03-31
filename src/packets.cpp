@@ -293,7 +293,8 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
 			}
-		}
+		} break;
+
 		case TEMP_REPORT: {
 			uint32* probeResistances = packet->tempReport.probeResistances;
 			uint16 probeBeta = packet->tempReport.probeBeta;
