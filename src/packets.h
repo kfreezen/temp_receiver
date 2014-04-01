@@ -119,7 +119,10 @@ typedef union __PacketRev1 {
 				uint16 probeBeta;
 				uint16 batteryLevel;
 				uint32 topResistorValue;
-				byte reserved1[8];
+				uint16 macAckFails;
+				uint16 networkAckFails;
+				uint16 routeNotFoundFails;
+				byte reserved1[2];
 			} tempReport;
 
 			struct {
@@ -132,27 +135,28 @@ typedef union __PacketRev1 {
 			} receiverAck;
 
 			struct {
-				unsigned char PORTA, PORTB, PORTC, PORTD, PORTE;
-				unsigned char TRISA, TRISB, TRISC, TRISD, TRISE;
-				unsigned char ANSELA, ANSELB, ANSELC, ANSELD, ANSELE;
-				unsigned char APFCON1;
-				unsigned char BAUD1CON;
-				unsigned char SP1BRGL, SP1BRGH;
-				unsigned char RC1STA, TX1STA;
-				unsigned char TMR1L, TMR1H;
-				unsigned char T1CON, T1GCON;
-				unsigned char OPTION_REG;
-				unsigned char INTCON;
-				unsigned char PIE1, PIR1;
-				unsigned char STATUS;
-				unsigned char reserved;
-				unsigned char reservedForExtendedDiagReport;
+				uint8 PORTA, PORTB, PORTC, PORTD, PORTE;
+				uint8 TRISA, TRISB, TRISC, TRISD, TRISE;
+				uint8 ANSELA, ANSELB, ANSELC, ANSELD, ANSELE;
+				uint8 APFCON1;
+				uint8 BAUD1CON;
+				uint8 SP1BRGL, SP1BRGH;
+				uint8 RC1STA, TX1STA;
+				uint8 TMR1L, TMR1H;
+				uint8 T1CON, T1GCON;
+				uint8 OPTION_REG;
+				uint8 INTCON;
+				uint8 PIE1, PIR1;
+				uint8 STATUS;
+				uint8 reserved;
+				uint8 reservedForExtendedDiagReport;
             } diagReport;
 
 			struct {
-				unsigned short error;
-				unsigned long data;
-			} errReport;
+				uint16 error;
+				uint32 data;
+			} errReport __attribute__((packed));
+
 		} __attribute__((packed));
     } __attribute__((packed));
 

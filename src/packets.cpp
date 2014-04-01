@@ -389,6 +389,12 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			SensorDB db;	
 			db.AddReport(GetID(&id), time(NULL), probeTemps, battLevel);
 
+			if(packet->tempReport.macAckFails != 0 || packet->tempReport.networkAckFails != 0 || packet->tempReport.routeNotFoundFails != 0) {
+				Logger_Print(ERROR, time(NULL), "macfails = %x, networkfails = %x, routenotfoundfails = %x\n", packet->tempReport.macAckFails, packet->tempReport.networkAckFails, packet->tempReport.routeNotFoundFails);
+			} else {
+				printf("No fails.\n");
+			}
+
 			hexdump(packet, sizeof(PacketRev1));
 
 		} break;
