@@ -94,11 +94,13 @@ void Logger_Print(int logType, time_t timestamp, const char* fmt, ...) {
 	delete[] timeStr;
 
 	va_list args;
-	va_start(args, fmt);
-	
-	vfprintf(logFile, fmt, args);
-	vfprintf(_chosen_consoleout, fmt, args);
 
+	va_start(args, fmt);
+	vfprintf(logFile, fmt, args);
+	va_end(args);
+
+	va_start(args, fmt);
+	vfprintf(_chosen_consoleout, fmt, args);
 	va_end(args);
 
 	fclose(logFile);

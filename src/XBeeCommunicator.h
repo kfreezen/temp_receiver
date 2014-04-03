@@ -79,6 +79,14 @@ public:
 
 	static void cleanupDefault();
 
+	pthread_t* getHandlerThread() {
+		return this->handlerThread;
+	}
+
+	pthread_t* getDispatchThread() {
+		return this->dispatchThread;
+	}
+	
 private:
 	static XBeeCommunicator* defaultComm;
 
@@ -87,11 +95,11 @@ private:
 
 	deque<XBeeCommRequest> dispatchQueue;
 	
-	pthread_t dispatchThread;
+	pthread_t* dispatchThread;
 	pthread_mutex_t dispatchThreadMutex;
 	pthread_cond_t dispatchThreadCondition;
 
-	pthread_t handlerThread;
+	pthread_t* handlerThread;
 	pthread_mutex_t handlerThreadMutex;
 	pthread_cond_t handlerThreadCondition;
 

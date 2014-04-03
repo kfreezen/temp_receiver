@@ -21,6 +21,33 @@ struct timespec add_timespec(struct timespec a, struct timespec b) {
 	return sp;
 }
 
+struct timespec sub_timespec(struct timespec a, struct timespec b) {
+	long ns = a.tv_nsec - b.tv_nsec;
+	time_t s = a.tv_sec - b.tv_sec - (ns / 1000000000);
+	ns = ns % 1000000000;
+	struct timespec sp;
+	sp.tv_sec = s;
+	sp.tv_nsec = ns;
+	return sp;
+}
+
+#define LESS_THAN -1
+#define EQUAL 0
+#define MORE_THAN 1
+
+int compare_timespec(struct timespec a, struct timespec b) {
+	if(a.tv_sec < b.tv_sec) {
+		return LESS_THAN;
+	} else if(a.tv_sec > b.tv_sec) {
+		return MORE_THAN;
+	} else if(a.tv_nsec < b.tv_nsec) {
+		return LESS_THAN;
+	} else if(a.tv_nsec > b.tv_nsec) {
+		return MORE_THAN;
+	} else {
+		return EQUAL;
+	}
+}
 
 char* getTimeAsString(time_t timestamp) {
 	char* time_buf = new char[128];

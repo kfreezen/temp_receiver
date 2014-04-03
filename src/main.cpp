@@ -25,6 +25,7 @@
 #include "update.h"
 #include "test.h"
 #include "packets.h"
+#include "watchdog.h"
 
 using namespace std;
 
@@ -240,6 +241,8 @@ int main(int argc, char** argv) {
 			break;
 		}
 	}
+
+	startWatchdogThread();
 
 	// Start our update checker.
 	pthread_t updateCheckerThread;

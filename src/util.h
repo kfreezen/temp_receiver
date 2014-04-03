@@ -8,6 +8,8 @@
 
 struct timespec now();
 struct timespec add_timespec(struct timespec a, struct timespec b);
+struct timespec sub_timespec(struct timespec a, struct timespec b);
+int compare_timespec(struct timespec a, struct timespec b);
 
 // Gets the current time as a string.
 // Uses threadsafe version of ctime

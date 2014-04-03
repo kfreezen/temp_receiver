@@ -5,6 +5,7 @@
 #include "xbee.h"
 #include "XBeeCommunicator.h"
 #include "util.h"
+#include "watchdog.h"
 
 using std::deque;
 
@@ -20,6 +21,9 @@ void XBeeCommunicator::cleanupDefault() {
 }
 
 XBeeCommunicator::XBeeCommunicator(SerialPort* port) {
+	this->dispatchThread = new pthread_t;
+	this->handlerThread = new pthread_t;
+
 	this->serialPort = port;
 	this->xbeeCommBits = new vector<bool>(XBeeCommunicator::MAX_CONCURRENT_COMMS);
 	this->xbeeComms = new XBeeCommStruct [MAX_CONCURRENT_COMMS + 1];
@@ -28,13 +32,16 @@ XBeeCommunicator::XBeeCommunicator(SerialPort* port) {
 
 XBeeCommunicator::~XBeeCommunicator() {
 	// Figure out how to get that one thread to exit.
+
+	delete this->dispatchThread;
+	delete this->handlerThread;
 }
 
 void XBeeCommunicator::startHandler() {
 	pthread_mutex_init(&this->handlerThreadMutex, NULL);
 	pthread_cond_init(&this->handlerThreadCondition, NULL);
 
-	int err = pthread_create(&this->handlerThread, NULL, (void*(*)(void*))XBeeCommunicator::handler, (void*) this);
+	int err = pthread_create(this->handlerThread, NULL, (void*(*)(void*))XBeeCommunicator::handler, (void*) this);
 	
 	if(err) {
 		string errReason;
@@ -58,7 +65,7 @@ void XBeeCommunicator::startDispatch() {
 	pthread_mutex_init(&this->dispatchThreadMutex, NULL);
 	pthread_cond_init(&this->dispatchThreadCondition, NULL);
 
-	int err = pthread_create(&this->dispatchThread, NULL, (void*(*)(void*))XBeeCommunicator::dispatcher, (void*) this);
+	int err = pthread_create(this->dispatchThread, NULL, (void*(*)(void*))XBeeCommunicator::dispatcher, (void*) this);
 
 	if(err) {
 		string errReason;
@@ -166,6 +173,14 @@ int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
 }
 
 void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
+	Watchdog* watchdog = NULL;
+	struct timespec wdtTmo;
+	wdtTmo.tv_sec = 1;
+	wdtTmo.tv_nsec = 0;
+
+	watchdog = new Watchdog("handler", comm->getHandlerThread(), wdtTmo, NULL);
+	registerWatchdog(watchdog);
+	
 	while(1) {
 		bool commStructAllocated = false;
 
