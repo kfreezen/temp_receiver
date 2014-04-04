@@ -137,6 +137,7 @@ void SerialPort::init(string port, int baud) {
 int SerialPort::reinit() {
 	printf("Reconnecting...\n");
 	
+	// TODO:  Change this to a setting in the settings file.
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
 	

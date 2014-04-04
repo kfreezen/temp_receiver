@@ -11,6 +11,9 @@ typedef void (*RestartCallback)(Watchdog* watchdog);
 class Watchdog {
 public:
 	Watchdog(const char* id, pthread_t* thread, struct timespec timeout, RestartCallback callback);
+	~Watchdog() {
+		delete[] id;
+	}
 
 	const char* getId() {
 		return this->id;
@@ -32,6 +35,14 @@ public:
 		return this->callback;
 	}
 
+	void setUserData(void* p) {
+		this->userData = p;
+	}
+
+	void* getUserData() {
+		return this->userData;
+	}
+
 	// Reset WDT for this thread.
 	void reset();
 
@@ -48,9 +59,10 @@ private:
 	RestartCallback callback;
 
 	struct timespec lastReset;
+	void* userData;
 };
 
 void startWatchdogThread();
 void registerWatchdog(Watchdog* watchdog);
-
+void watchdogQuit();
 #endif

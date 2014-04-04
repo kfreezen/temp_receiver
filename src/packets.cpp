@@ -203,7 +203,19 @@ void logReceiverRequest(SensorId id, int wdtResetSpot) {
 
 #define MAX_DIAG_LOG_SIZE_MB 4
 
+// I hate this.  That is an understatement.  I should probably confess the transgression to another programmer.
+// This is used in the logging of the signal strength of reports.  Due to the way my program, and perhaps to a lesser
+// extent, the xbee, is designed, I must save the last packet's sensor ID for the command handler, which will handle the
+// response to my ATDB command, which is called in HandlePacketRev1.
+
+SensorId lastPacketSensorId;
+
 void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
+	lastPacketSensorId = apiFrame->rx.rev1.packet.header.sensorId;
+	
+	// We don't need to wait because the handler takes care of it.
+	XBAPI_Command(comm, API_CMD_ATDB, NULL, 0);
+
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
 	
 	if(packetsDebug && verbose >= 1) {

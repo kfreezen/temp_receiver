@@ -87,6 +87,21 @@ public:
 		return this->dispatchThread;
 	}
 	
+	// These two are called by C functions (pthread), so they need to be static class methods.
+	static void* dispatcher(XBeeCommunicator* comm);
+	static void* handler(XBeeCommunicator* comm);
+
+	void heartbeatReceived() {
+		this->lastXBeeHeartbeat = time(NULL);
+	}
+
+	bool heartbeatExpired() {
+		if(this->lastXBeeHeartbeat + this->xbeeHeartbeatTimeout <= time(NULL)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 private:
 	static XBeeCommunicator* defaultComm;
 
@@ -105,9 +120,8 @@ private:
 
 	SerialPort* serialPort;
 
-	// These two are called by C functions (pthread), so they need to be static class methods.
-	static void* dispatcher(XBeeCommunicator* comm);
-	static void* handler(XBeeCommunicator* comm);
+	time_t lastXBeeHeartbeat;
+	const static int xbeeHeartbeatTimeout = 60;
 };
 
 

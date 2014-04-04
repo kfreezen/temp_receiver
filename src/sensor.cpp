@@ -76,6 +76,8 @@ void AddSensor(SensorId* id) {
 
 	Sensor* sensor = new Sensor;
 	
+	memset(sensor, 0, sizeof(Sensor));
+	
 	memcpy(&sensor->id, id, sizeof(SensorId));
 
 	//printf("id=%s\n", GetXBeeID(addr).c_str());

@@ -11,6 +11,7 @@
 #include "packet_defs.h"
 #include "util.h"
 #include "sensor.h"
+#include "logger.h"
 
 #define START_DELIMITER 0x7e
 
@@ -256,12 +257,11 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 		printf("Handling ... ");
 	}
 
+	comm->heartbeatReceived();
+	
 	switch(apiFrame->rx.rev0.frame_type) {
 		case API_RX_INDICATOR: {
 			// TODO:  We need to change this handle packet function to go through the XBeeCommunicator*
-			
-			// We don't need to wait because the handler takes care of it.
-			XBAPI_Command(comm, API_CMD_ATDB, NULL, 0);
 
 			HandlePacket(comm, apiFrame);
 			return 1;
@@ -320,10 +320,12 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					signalStrength = *((byte*) data);
 
 					// Now we need to log the signal strength.
-					logSignalStrength(apiFrame->rx.rev1.packet.header.sensorId, -signalStrength);
+					extern SensorId lastPacketSensorId; // Defined in packets.cpp.  You should not do things like this.
+					logSignalStrength(lastPacketSensorId, -signalStrength);
+
 					printf("c__ %x, %d, %d\n", apiFrame->atCmdResponse.command, returnValue, -signalStrength);
 				} else {
-					printf("command error %d\n", returnValue);
+					Logger_Print(ERROR, time(NULL), "Command error %d\n", returnValue);
 				}
 			} else {
 				printf("command = %x\n", apiFrame->atCmdResponse.command);

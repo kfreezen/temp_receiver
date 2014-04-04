@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <pthread.h>
+#include <signal.h>
 
 #include "xbee.h"
 #include "XBeeCommunicator.h"
@@ -35,6 +37,9 @@ XBeeCommunicator::~XBeeCommunicator() {
 
 	delete this->dispatchThread;
 	delete this->handlerThread;
+
+	delete this->xbeeCommBits;
+	delete[] this->xbeeComms;
 }
 
 void XBeeCommunicator::startHandler() {
@@ -173,14 +178,8 @@ int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
 }
 
 void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
-	Watchdog* watchdog = NULL;
-	struct timespec wdtTmo;
-	wdtTmo.tv_sec = 1;
-	wdtTmo.tv_nsec = 0;
-
-	watchdog = new Watchdog("handler", comm->getHandlerThread(), wdtTmo, NULL);
-	registerWatchdog(watchdog);
 	
+
 	while(1) {
 		bool commStructAllocated = false;
 
@@ -246,6 +245,11 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		}
 
 		if(commStructAllocated) {
+			// Go through the commStruct first and delete everything that needs deleting.
+			if(commStruct->replyFrame != NULL) {
+				delete[] commStruct->replyFrame;
+			}
+
 			delete commStruct;
 		}
 	}
@@ -253,10 +257,42 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 
 const struct timespec MAX_DISPATCH_WAIT = {0, MAX_DISPATCH_WAIT_NS};
 
+void restartDispatchThread(Watchdog* watchdog) {
+	pthread_kill(*watchdog->getThread(), SIGKILL);
+	pthread_create(watchdog->getThread(), NULL, (void*(*)(void*)) XBeeCommunicator::dispatcher, watchdog->getUserData());
+}
+
 void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
+	Watchdog* watchdog = NULL;
+	struct timespec wdtTmo;
+	wdtTmo.tv_sec = 1;
+	wdtTmo.tv_nsec = 0;
+
+	watchdog = new Watchdog("dispatcher", comm->getDispatchThread(), wdtTmo, restartDispatchThread);
+	watchdog->setUserData((void*) comm);
+
+	registerWatchdog(watchdog);
+
 	// We basically need an infinite loop that dispatches all requests.
 
+	// We want to send a command every 10 seconds to keep the connection alive.
+	time_t lastHeartbeatSent = 0;
+
 	while(1) {
+		if(time(NULL) <= lastHeartbeatSent + XBEE_HEARTBEAT_TIMEOUT) {
+			XBAPI_Command(comm, API_CMD_ATHV, NULL, FALSE);
+			lastHeartbeatSent = time(NULL);
+		
+			// Let's check the XBee heartbeat status and see if we need to reinitialize the port.
+			// Limited to every XBEE_HEARTBEAT_TIMEOUT seconds so that the program doesn't go crazy
+			// when things do fail.
+			if(comm->heartbeatExpired()) {
+				comm->serialPort->reinit();
+				Logger_Print(INFO, time(NULL), "Serial port being reinitialized due to a heartbeat failure.\n");
+			}
+
+		}
+
 		while(!comm->dispatchQueue.empty()) {
 			printf("comm->dispatchQueue.size() = %d\n", comm->dispatchQueue.size());
 			pthread_mutex_lock(&comm->dispatchThreadMutex);
@@ -290,6 +326,8 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 					break;
 			}
 		}
+
+		watchdog->reset();
 
 		pthread_mutex_lock(&comm->dispatchThreadMutex);
 

@@ -44,10 +44,15 @@ extern int packetsDebug;
 
 // SIGNAL STUFF
 
+void exitCleanup() {
+	XBeeCommunicator::cleanupDefault();
+	watchdogQuit();
+}
+
 void sigterm_handler(int sig, siginfo_t* siginfo, void* context) {
 	printf("sigterm.  from %d, sig=%d, exiting...\n", siginfo->si_pid, sig);
 	
-	XBeeCommunicator::cleanupDefault();
+	exitCleanup();
 
 	exit(0);
 }
@@ -58,6 +63,9 @@ void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
 
 void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
 	printf("SIGINT received from %d, exiting...\n", siginfo->si_pid);
+
+	exitCleanup();
+
 	exit(0);
 }
 

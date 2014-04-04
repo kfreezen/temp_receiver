@@ -295,11 +295,14 @@ doRetry:
 		timeToWait.tv_nsec = 0;
 
 		clock_gettime(CLOCK_REALTIME, &abstime);
-		
+	
+		pthread_mutex_lock(&comm->sendCondMutex);
+
 		abstime = add_timespec(abstime, timeToWait);
 
 		int timedwait_error = pthread_cond_timedwait(&comm->sendCond, &comm->sendCondMutex, &abstime);
-
+		pthread_mutex_unlock(&comm->sendCondMutex);
+		
 		if(timedwait_error != 0) {
 			// Make sure the error isn't timed out, because timedout is innocuous
 			// in this usage.

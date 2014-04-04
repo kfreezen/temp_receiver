@@ -65,8 +65,16 @@ void registerWatchdog(Watchdog* watchdog) {
 	pthread_cond_signal(&watchdogsCond);
 }
 
+#define WATCHDOG_QUIT 255
+
+int watchdogComm = 0;
+
+void watchdogQuit() {
+	watchdogComm = WATCHDOG_QUIT;
+}
+
 void* WatchdogThread(void* arg) {
-	while(1) {
+	while(watchdogComm != WATCHDOG_QUIT) {
 		vector<Watchdog*>::iterator itr;
 
 		struct timespec minTime;
@@ -94,9 +102,13 @@ void* WatchdogThread(void* arg) {
 			}
 		}
 
+		pthread_mutex_lock(&watchdogsCondMutex);
+
 		// It doesn't matter if this gets interrupted by something else.
 		struct timespec curTime = now();
 		minTime = add_timespec(curTime, minTime);
 		pthread_cond_timedwait(&watchdogsCond, &watchdogsCondMutex, &minTime);
+		
+		pthread_mutex_unlock(&watchdogsCondMutex);
 	}
 }

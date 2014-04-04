@@ -25,6 +25,7 @@
 #define API_CMD_ATSL 0x4C53
 #define API_CMD_ATSH 0x4853
 #define API_CMD_ATDB 0x4244
+#define API_CMD_ATHV 0x5648
 
 #define TRANSMIT_SUCCESS 0x00
 #define MAC_ACK_FAIL 0x01
@@ -32,6 +33,8 @@
 #define ROUTE_NOT_FOUND 0x25
 #define PAYLOAD_TOO_LARGE 0x74
 #define INDIRECT_MSG_UNREQUESTED 0x75
+
+#define XBEE_HEARTBEAT_TIMEOUT 10
 
 #include "XBeeCommunicator.h"
 

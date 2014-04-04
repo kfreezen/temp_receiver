@@ -4,6 +4,7 @@
 #include <ctime>
 #include <cstdio>
 
+#include "logger.h"
 #include "globaldef.h"
 
 struct timespec now();
