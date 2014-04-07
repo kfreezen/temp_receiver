@@ -247,7 +247,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		if(commStructAllocated) {
 			// Go through the commStruct first and delete everything that needs deleting.
 			if(commStruct->replyFrame != NULL) {
-				delete[] commStruct->replyFrame;
+				delete commStruct->replyFrame;
 			}
 
 			delete commStruct;
