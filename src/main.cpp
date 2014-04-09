@@ -294,6 +294,8 @@ int main(int argc, char** argv) {
 	
 	delete[] buffer;
 
+	ServerComm* serverComm = new ServerComm;
+	serverComm->start();
 	
 	printf("We are starting the loop\n");
 

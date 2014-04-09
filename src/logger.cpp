@@ -106,5 +106,25 @@ void Logger_Print(int logType, time_t timestamp, const char* fmt, ...) {
 	vfprintf(_chosen_consoleout, fmt, args);
 	va_end(args);
 
+	if(ServerComm::comm != NULL && ServerComm::comm->isUsable()) {
+		int len = strlen(fmt) + 256;
+		char* str = new char[len];
+
+		va_start(args, fmt);
+		vsnprintf(str, len, fmt, args);
+		va_end(args);
+		
+		RSCPContent* logContent = new RSCPContent;
+		logContent->setRequest("LOG");
+		logContent->addLine("message", str);
+
+		char* tstamp = new char[32];
+		snprintf(tstamp, 32, "%ld", time(NULL));
+		logContent->addLine("timestamp", tstamp);
+		delete[] tstamp;
+
+		ServerComm::comm->sendContent(logContent);
+	}
+
 	fclose(logFile);
 }
