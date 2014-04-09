@@ -26,6 +26,7 @@
 #include "test.h"
 #include "packets.h"
 #include "watchdog.h"
+#include "ServerComm.h"
 
 using namespace std;
 

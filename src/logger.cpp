@@ -1,5 +1,6 @@
 #include "logger.h"
 #include "util.h"
+#include "ServerComm.h"
 
 #include <fstream>
 #include <string>

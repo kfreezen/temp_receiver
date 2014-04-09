@@ -28,6 +28,8 @@ public:
 		this->assembledContentOutOfDate = true;
 	}
 
+	RSCPContent(RSCPContent* content);
+
 	~RSCPContent() {
 		this->clear();
 	}
@@ -69,7 +71,10 @@ public:
 	int loadFromComm(ServerComm* comm);
 	int loadFromSocket(int socketFd);
 
-	int sendTo(int socketFd);
+	void sendTo(ServerComm* comm);
+
+	int sendToSocket(int socketFd);
+
 private:
 	bool assembledContentOutOfDate;
 	char* assembledContent;
@@ -108,12 +113,21 @@ public:
 		this->toSend.push_back(content);
 		pthread_mutex_unlock(&this->sendLock);
 
+		pthread_mutex_lock(&this->sendCondMutex);
 		pthread_cond_signal(&this->sendCond);
+		pthread_mutex_unlock(&this->sendCondMutex);
+	}
+
+	bool isUsable() {
+		return this->m_isUsable;
 	}
 
 	static ServerComm* comm;
 
 private:
+	// This basically tells the program whether send-request will get sent.
+	bool m_isUsable;
+
 	void cleanup();
 
 	const static int SERVER_PORT = 14440;

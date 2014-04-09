@@ -29,6 +29,8 @@ pthread_mutex_t* logMutex = NULL;
 ServerComm* ServerComm::comm = NULL;
 
 ServerComm::ServerComm() {
+	this->m_isUsable = false;
+
 	// Make sure logMutex is not NULL.
 	if(logMutex == NULL) {
 		logMutex = new pthread_mutex_t;
@@ -52,6 +54,28 @@ ServerComm::ServerComm() {
 void ServerComm::start() {
 	this->commThread = new pthread_t;
 	pthread_create(this->commThread, NULL, ServerComm::CommThread, (void*) this);
+}
+
+RSCPContent::RSCPContent(RSCPContent* content) {
+	if(content->assembledContent != NULL) {
+		this->assembledContent = new char[strlen(content->assembledContent) + 1];
+		strcpy(this->assembledContent, content->assembledContent);
+	} else {
+		this->assembledContent = NULL;
+	}
+
+	if(content->request != NULL) {
+		this->request = new char[strlen(content->request) + 1];
+		strcpy(this->request, content->request);
+	} else {
+		this->request = NULL;
+	}
+
+	map<string, char*>::iterator itr;
+	for(itr = content->contentLines.begin(); itr != this->contentLines.end(); itr++) {
+		char* data = new char[strlen(itr->second) + 1];
+		this->contentLines[itr->first] = data;
+	}
 }
 
 #define INITIAL_BYTES 256
@@ -142,6 +166,8 @@ int RSCPContent::loadFromSocket(int socketFd) {
 }
 
 void ServerComm::cleanup() {
+	this->m_isUsable = false;
+
 	this->clearErrors();
 	if(this->heartbeatThread != NULL) {
 		this->heartbeatThreadComm = ServerComm::QUIT;
@@ -160,99 +186,121 @@ void* ServerComm::CommThread(void* arg) {
 	ServerComm* comm = (ServerComm*) arg;
 
 doRetry:
-	comm->cleanup();
-
-	comm->socketFd = socket(AF_INET, SOCK_STREAM, 0);
-
-	if(comm->socketFd < 0) {
-		fprintf(stderr, "socket error %s\n", strerror(errno));
-		Logger_Print(ERROR, time(NULL), "socket error %s\n", strerror(errno));
-		return NULL;
-	}
-
 	struct addrinfo* result = NULL;
 	struct addrinfo hint;
-	memset(&hint, 0, sizeof(hint));
 
-	// Fill out hints.
-	hint.ai_family = AF_INET;
-	hint.ai_socktype = SOCK_STREAM;
+	char* portStr = NULL;
 
-	char* portStr = new char[32];
-	snprintf(portStr, 32, "%d", ServerComm::SERVER_PORT);
+	while(1) {
+		if(result != NULL) {
+			freeaddrinfo(result);
+			result = NULL;
+		}
 
-	int gaiError = getaddrinfo(Settings::get("server").c_str(), portStr, &hint, &result);
-	if(gaiError != 0) {
-		Logger_Print(ERROR, time(NULL), "getaddrinfo error %s\n", gai_strerror(gaiError));
-		
-		sleep(RETRY_WAIT);
-		goto doRetry;
-	}
+		if(portStr != NULL) {
+			delete[] portStr;
+			portStr = NULL;
+		}
 
-	if(connect(comm->socketFd, result->ai_addr, result->ai_addrlen) < 0) {
-		char* errstr = getErrorString();
-		Logger_Print(ERROR, time(NULL), "Connection failed.  error %s\n", errstr);
-		delete[] errstr;
+		memset(&hint, 0, sizeof(hint));
 
-		sleep(RETRY_WAIT);
-		goto doRetry;
-	} else {
-		
-		// Now that the connect has been completed, we place
-		// the socket in nonblocking mode.
-		int opts = fcntl(comm->socketFd, F_GETFL);
-		if(opts < 0) {
+		comm->cleanup();
+
+		comm->socketFd = socket(AF_INET, SOCK_STREAM, 0);
+
+		if(comm->socketFd < 0) {
+			fprintf(stderr, "socket error %s\n", strerror(errno));
+			Logger_Print(ERROR, time(NULL), "socket error %s\n", strerror(errno));
+			return NULL;
+		}
+
+		// Fill out hints.
+		hint.ai_family = AF_INET;
+		hint.ai_socktype = SOCK_STREAM;
+
+		portStr = new char[32];
+		snprintf(portStr, 32, "%d", ServerComm::SERVER_PORT);
+
+		int gaiError = getaddrinfo(Settings::get("server").c_str(), portStr, &hint, &result);
+		if(gaiError != 0) {
+			Logger_Print(ERROR, time(NULL), "getaddrinfo error %s\n", gai_strerror(gaiError));
+			
+			sleep(RETRY_WAIT);
+			continue;
+		}
+
+		if(connect(comm->socketFd, result->ai_addr, result->ai_addrlen) < 0) {
 			char* errstr = getErrorString();
-			Logger_Print(ERROR, time(NULL), "fcntl(F_GETFL) error %s\n", errstr);
+			Logger_Print(ERROR, time(NULL), "Connection failed.  error %s.  %s, %s\n", errstr, Settings::get("server").c_str(), portStr);
 			delete[] errstr;
 
-			return NULL;
+			sleep(RETRY_WAIT);
+			continue;
+		} else {
+			
+			// Now that the connect has been completed, we place
+			// the socket in nonblocking mode.
+			int opts = fcntl(comm->socketFd, F_GETFL);
+			if(opts < 0) {
+				char* errstr = getErrorString();
+				Logger_Print(ERROR, time(NULL), "fcntl(F_GETFL) error %s\n", errstr);
+				delete[] errstr;
+
+				return NULL;
+			}
+
+			opts |= O_NONBLOCK;
+			if(fcntl(comm->socketFd, F_SETFL, opts) < 0) {
+				Logger_Print(ERROR, time(NULL), "fcntl(F_GETFL) error %s\n", strerror(errno));
+				return NULL;
+			}
+
+			// Now we need to send our connection packet.
+
+			// Set up the connection packet.
+			RSCPContent content;
+			content.setRequest(CONNECT);
+
+			extern string receiverId;
+			content.addLine("id", receiverId.c_str());
+
+			content.sendToSocket(comm->socketFd);
+
+			/*char* contentStr = content.getContentAsString();
+
+			// Send the connection content.
+			send(comm->socketFd, contentStr, strlen(contentStr), 0);
+			delete[] contentStr;*/
+
+			content.loadFromComm(comm);
+			if(comm->isDisconnected == true) {
+				// Let's wait thirty seconds and retry it.
+				close(comm->socketFd);
+				sleep(30);
+				continue;
+			}
+
+			const char* ack = content.getLineData("ack");
+			if(ack == NULL || strcmp(ack, "success")) {
+				// Something's gone wrong.
+				char* errorContent = content.getContentAsString();
+				Logger_Print(ERROR, time(NULL), "ack was not successful.\n%s\n", errorContent);
+				delete[] errorContent;
+			}
+
+			content.clear();
+
+			// Here we are, our connection handshake is done.
+			comm->lastHeartbeat = time(NULL);
+
+			break;
 		}
-
-		opts |= O_NONBLOCK;
-		if(fcntl(comm->socketFd, F_SETFL, opts) < 0) {
-			Logger_Print(ERROR, time(NULL), "fcntl(F_GETFL) error %s\n", strerror(errno));
-			return NULL;
-		}
-
-		// Now we need to send our connection packet.
-
-		// Set up the connection packet.
-		RSCPContent content;
-		content.setRequest(CONNECT);
-
-		extern string receiverId;
-		content.addLine("id", receiverId.c_str());
-
-		content.sendTo(comm->socketFd);
-
-		/*char* contentStr = content.getContentAsString();
-
-		// Send the connection content.
-		send(comm->socketFd, contentStr, strlen(contentStr), 0);
-		delete[] contentStr;*/
-
-		content.loadFromComm(comm);
-		if(comm->isDisconnected == true) {
-			// Let's wait thirty seconds and retry it.
-			close(comm->socketFd);
-			sleep(30);
-			goto doRetry;
-		}
-
-		const char* ack = content.getLineData("ack");
-		if(ack == NULL || strcmp(ack, "success")) {
-			// Something's gone wrong.
-			char* errorContent = content.getContentAsString();
-			Logger_Print(ERROR, time(NULL), "ack was not successful.\n%s\n", errorContent);
-			delete[] errorContent;
-		}
-
-		content.clear();
-
-		// Here we are, our connection handshake is done.
-		comm->lastHeartbeat = time(NULL);
 	}
+	
+	// Clean up addrinfo 
+	freeaddrinfo(result);
+	// We don't need portStr anymore
+	delete[] portStr;
 
 	if(comm->heartbeatThread != NULL) {
 		// close the heartbeat thread.
@@ -272,10 +320,13 @@ doRetry:
 
 	int num_einvals = 0;
 
+	// The fact that we got here means that it is usable.
 	while(1) {
 		// First we check to see if the socket has been disconnected.
 		if(comm->isDisconnected == true) {
 			goto doRetry;
+		} else {
+			comm->m_isUsable = true;
 		}
 
 		// Go through our deque of contents to send.
@@ -285,8 +336,9 @@ doRetry:
 			comm->toSend.pop_front();
 			pthread_mutex_unlock(&comm->sendLock);
 
-			printf("doing content send.\n");
-			content->sendTo(comm->socketFd);
+			content->sendToSocket(comm->socketFd);
+
+			delete content;
 		}
 
 		struct timespec abstime;
@@ -350,7 +402,7 @@ void* ServerComm::HeartbeatThread(void* arg) {
 			printf("doing send\n");
 		}
 
-		if(heartbeat.sendTo(comm->socketFd) == -1) {
+		if(heartbeat.sendToSocket(comm->socketFd) == -1) {
 			if(errno == EPIPE) {
 				comm->isDisconnected = true;
 				comm->disconnectCause = "unknown";
@@ -366,11 +418,18 @@ void* ServerComm::HeartbeatThread(void* arg) {
 	comm->heartbeatThreadComm = ServerComm::DONE;
 }
 
-int RSCPContent::sendTo(int socketFd) {
+void RSCPContent::sendTo(ServerComm* comm) {
+	RSCPContent* copied = new RSCPContent(this);
+	comm->sendContent(copied);
+}
+
+int RSCPContent::sendToSocket(int socketFd) {
 	char* contentStr = this->getContentAsString();
 
 	// TODO:  Do some error handling.
 	if(send(socketFd, contentStr, strlen(contentStr), MSG_NOSIGNAL) == -1) {
+		printf("send to socket failed.  %d\n", errno);
+		
 		delete[] contentStr;
 		return -1;
 	} else {
