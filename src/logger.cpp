@@ -64,6 +64,8 @@ void Logger_Print(int logType, time_t timestamp, const char* fmt, ...) {
 		case WARNING:
 		case ERROR:
 			_chosen_consoleout = stderr;
+			break;
+			
 		default:
 			_chosen_consoleout = stdout;
 	}

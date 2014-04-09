@@ -281,6 +281,10 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 			// Now we take the data and put it into an unsigned int.
 			if(dataLength > maxDataLength) {
 				printf("dataLength==%d, maxDataLength==%d.  Returning.\n", dataLength, maxDataLength);
+
+				delete data;
+				data = NULL;
+				
 				return -1;
 			}
 			

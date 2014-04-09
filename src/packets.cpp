@@ -246,7 +246,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 
 			if(ftell(diagLog) >= MAX_DIAG_LOG_SIZE_MB * 1024 * 1024) {
 				fclose(diagLog);
-				fopen("diag.log", "w");
+				diagLog = fopen("diag.log", "w");
 				fprintf(diagLog, "new log @ %s\n", tstr);	
 			}
 

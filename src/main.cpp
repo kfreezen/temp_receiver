@@ -139,6 +139,7 @@ extern unsigned swap_endian_32(unsigned n);
 #define ENABLE_DAEMON 1
 extern int xbeeDebug;
 extern int noWeb;
+extern bool watchdogEnabled;
 
 int main(int argc, char** argv) {
 	// Not sure if this setvbuf is necessary anymore.
@@ -164,6 +165,8 @@ int main(int argc, char** argv) {
 			verbose = atoi(argv[++i]);
 		} else if(!strcmp(argv[i], "--packets-debug") || !strcmp(argv[i], "-dp")) {
 			packetsDebug = 1;
+		} else if(!strcmp(argv[i], "--no-wdt")) {
+			watchdogEnabled = false;
 		}
 
 	}
