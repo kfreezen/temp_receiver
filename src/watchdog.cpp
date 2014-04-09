@@ -7,6 +7,8 @@
 
 using namespace std;
 
+bool watchdogEnabled = true;
+
 Watchdog::Watchdog(const char* id, pthread_t* thread, struct timespec timeout, RestartCallback callback) {
 	this->id = NULL;
 
@@ -57,12 +59,16 @@ pthread_t watchdogThread;
 void* WatchdogThread(void* arg);
 
 void startWatchdogThread() {
-	pthread_create(&watchdogThread, NULL, WatchdogThread, NULL);
+	if(watchdogEnabled) {
+		pthread_create(&watchdogThread, NULL, WatchdogThread, NULL);
+	}
 }
 
 void registerWatchdog(Watchdog* watchdog) {
-	watchdogs.push_back(watchdog);
-	pthread_cond_signal(&watchdogsCond);
+	if(watchdogEnabled) {
+		watchdogs.push_back(watchdog);
+		pthread_cond_signal(&watchdogsCond);
+	}
 }
 
 #define WATCHDOG_QUIT 255
