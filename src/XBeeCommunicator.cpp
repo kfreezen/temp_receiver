@@ -332,7 +332,7 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 		pthread_mutex_lock(&comm->dispatchThreadMutex);
 
 		struct timespec absTime = add_timespec(now(), MAX_DISPATCH_WAIT);
-		int condRet = pthread_cond_timedwait(&comm->dispatchThreadCondition, &comm->dispatchThreadMutex, &absTime);
+		pthread_cond_timedwait(&comm->dispatchThreadCondition, &comm->dispatchThreadMutex, &absTime);
 		pthread_mutex_unlock(&comm->dispatchThreadMutex);
 	}
 }

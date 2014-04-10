@@ -72,7 +72,7 @@ RSCPContent::RSCPContent(RSCPContent* content) {
 	}
 
 	map<string, char*>::iterator itr;
-	for(itr = content->contentLines.begin(); itr != this->contentLines.end(); itr++) {
+	for(itr = content->contentLines.begin(); itr != this->contentLines.end(); std::advance(itr, 1)) {
 		char* data = new char[strlen(itr->second) + 1];
 		this->contentLines[itr->first] = data;
 	}
@@ -183,7 +183,7 @@ void ServerComm::cleanup() {
 
 #define ERRSTR_SIZE 256
 void* ServerComm::CommThread(void* arg) {
-	ServerComm* comm = (ServerComm*) arg;
+	ServerComm* comm = static_cast<ServerComm*>(arg);
 
 doRetry:
 	struct addrinfo* result = NULL;
@@ -384,7 +384,7 @@ doRetry:
 }
 
 void* ServerComm::HeartbeatThread(void* arg) {
-	ServerComm* comm = (ServerComm*) arg;
+	ServerComm* comm = static_cast<ServerComm*>(arg);
 
 	RSCPContent heartbeat;
 	heartbeat.setRequest(HEARTBEAT);

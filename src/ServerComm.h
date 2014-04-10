@@ -10,6 +10,7 @@
 #include <cctype>
 #include <ctime>
 #include <deque>
+#include <iterator>
 
 using std::map;
 using std::string;
@@ -46,7 +47,7 @@ public:
 		}
 
 		map<string, char*>::iterator itr;
-		for(itr = this->contentLines.begin(); itr != this->contentLines.end(); itr++) {
+		for(itr = this->contentLines.begin(); itr != this->contentLines.end(); std::advance(itr, 1)) {
 			// Delete our lines one by one. 
 			delete[] itr->second;
 		}

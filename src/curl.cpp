@@ -72,7 +72,7 @@ int SimpleCurl::writeFileFunc(void* ptr, int size, int nmemb, FILE* stream) {
 
 int SimpleCurl::writeFunc(char* buffer, int size, int nmemb, void* userPointer) {
 	printf("starting _");
-	CURLBuffer* buf = (CURLBuffer*) userPointer;
+	CURLBuffer* buf = static_cast<CURLBuffer*>(userPointer);
 
 	if(buf->buffer == NULL) {
 		buf->init(size*nmemb);

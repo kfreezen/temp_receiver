@@ -53,7 +53,7 @@ class SerialPort {
 		
 		// Sets the time (in ns) that this object waits between chars. (Default is 1000/baud*25)
 		void setCharTmo(unsigned int tmo) {
-			charReadTimeout = (tmo<0) ? 0 : tmo;
+			charReadTimeout = tmo;
 			__timeout_struct.tv_nsec = charReadTimeout;
 		}
 

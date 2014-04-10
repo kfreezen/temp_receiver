@@ -219,7 +219,11 @@ int main(int argc, char** argv) {
 	// Now since the above line didn't work for some reason...
 	if(enableDaemon == 1) {
 		if(fp == NULL) {
-			printf("Failure redirecting stdout.\n");
+			fprintf(stderr, "Failure redirecting stdout.\n");
+		}
+
+		if(errfp == NULL) {
+			fprintf(stderr, "Failure redirecting stderr.\n");
 		}
 	}
 
