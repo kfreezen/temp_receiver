@@ -258,7 +258,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 const struct timespec MAX_DISPATCH_WAIT = {0, MAX_DISPATCH_WAIT_NS};
 
 void restartDispatchThread(Watchdog* watchdog) {
-	pthread_kill(*watchdog->getThread(), SIGKILL);
+	pthread_kill(*watchdog->getThread(), SIGTERM);
 	pthread_create(watchdog->getThread(), NULL, (void*(*)(void*)) XBeeCommunicator::dispatcher, watchdog->getUserData());
 }
 
