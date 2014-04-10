@@ -151,6 +151,8 @@ private:
 
 	pthread_cond_t sendCond;
 	pthread_mutex_t sendCondMutex;
+
+	int version;
 };
 
 typedef struct {

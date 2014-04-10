@@ -20,6 +20,14 @@
 #include <sstream>
 #include <map>
 #include <cmath>
+#include <vector>
+
+typedef struct {
+	std::string sensor_id;
+	time_t timestamp;
+	double* probeValue;
+	double batteryLevel;
+} Report;
 
 #define RECV_AUTH "QmykRDNrEMfSJuLTSgzTWZyu"
 
@@ -279,8 +287,14 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 			batteryLevel
 		);
 
-	CURLBuffer* buf = curl.post(serverCallString, string(cPOST), POST_JSON);
+	int retries = 3;
+	CURLBuffer* buf = NULL;
+	while(buf == NULL && retries--) {
+		buf = curl.post(serverCallString, string(cPOST), POST_JSON);
+	}
+
 	if(buf == NULL) {
+		// We should add this to a list of failed reports.
 		return false;
 	}
 	

@@ -429,7 +429,7 @@ int RSCPContent::sendToSocket(int socketFd) {
 	// TODO:  Do some error handling.
 	if(send(socketFd, contentStr, strlen(contentStr), MSG_NOSIGNAL) == -1) {
 		printf("send to socket failed.  %d\n", errno);
-		
+
 		delete[] contentStr;
 		return -1;
 	} else {

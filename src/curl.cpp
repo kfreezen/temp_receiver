@@ -122,8 +122,6 @@ void SimpleCurl::download(string url, string fileName) {
 	
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
-
-	bool retVal = false;
 	
 	int err = curl_easy_perform(this->curlHandle);
 
@@ -162,8 +160,6 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
-
-	bool retVal = false;
 	
 	int err = curl_easy_perform(this->curlHandle);
 
@@ -213,8 +209,6 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	}
 
 	curl_easy_setopt(this->curlHandle, CURLOPT_HTTPHEADER, headers);
-
-	bool retVal = false;
 
 	int err = curl_easy_perform(this->curlHandle);
 	if(err) {
