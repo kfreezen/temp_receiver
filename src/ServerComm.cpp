@@ -263,6 +263,7 @@ doRetry:
 
 			extern string receiverId;
 			content.addLine("id", receiverId.c_str());
+			content.addLine("version", VERSION_STR);
 
 			content.sendToSocket(comm->socketFd);
 
@@ -281,13 +282,23 @@ doRetry:
 			}
 
 			const char* ack = content.getLineData("ack");
+			const char* version_str = content.getLineData("version");
 			if(ack == NULL || strcmp(ack, "success")) {
 				// Something's gone wrong.
 				char* errorContent = content.getContentAsString();
 				Logger_Print(ERROR, time(NULL), "ack was not successful.\n%s\n", errorContent);
 				delete[] errorContent;
+
+				close(comm->socketFd);
+				sleep(30);
+				continue;
 			}
 
+			if(version_str == NULL) {
+				comm->version = 0;
+			} else {
+				comm->version = atoi(version_str);
+			}
 			content.clear();
 
 			// Here we are, our connection handshake is done.

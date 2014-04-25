@@ -17,6 +17,8 @@ using std::string;
 using std::vector;
 using std::deque;
 
+#define VERSION_STR "1"
+
 // I thinks the best way to implement this is for it to have its own thread.
 
 class ServerComm;
