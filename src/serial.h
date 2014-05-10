@@ -43,6 +43,7 @@ class SerialPort {
 		
 		~SerialPort();
 
+		int findPortsAndInit();
 		int reinit();
 		
 		bool readByte(unsigned char* p_c);
@@ -65,7 +66,7 @@ class SerialPort {
 		void heartbeat();
 
 	private:
-		void init(string port, int baud);
+		int init(string port, int baud);
 		void clearVars();
 		
 		//FILE* portFile;

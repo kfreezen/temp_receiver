@@ -27,16 +27,13 @@ SerialPort::~SerialPort() {
 SerialPort::SerialPort(int baud) {
 	this->clearVars();
 
-	string portFileBase = string("/dev/ttyUSB");
-	vector<string> ports = findValidPorts(portFileBase);
-	
-	vector<string>::iterator port_itr;
-	for(port_itr = ports.begin(); port_itr < ports.end(); port_itr++) {
-		init(*port_itr, baud);
+	this->mBaud = baud;
+
+	if(this->findPortsAndInit() == -1) {
+		throw SerialPortException("No valid port found.");
+	} else {
 		return;
 	}
-	
-	throw SerialPortException("No valid port found.");
 }
 
 SerialPort::SerialPort(string port, int baud) {
@@ -45,10 +42,10 @@ SerialPort::SerialPort(string port, int baud) {
 	init(port, baud);
 }
 
-// If baud is a non-standard rate, (e.g. 9600, 19200, 115200 and the like),
+// If baud is a non-standard rate, (e.g. 4000, 11000, 115300 and the like),
 // this function defaults to 9600 baud.
 
-void SerialPort::init(string port, int baud) {
+int SerialPort::init(string port, int baud) {
 	printf("SerialPort::init\n");
 	
 	if(this->savedPortName != NULL) {
@@ -56,6 +53,16 @@ void SerialPort::init(string port, int baud) {
 	}
 
 	this->portFileNo = open(port.c_str(), O_RDWR | O_NONBLOCK);
+	if(this->portFileNo == -1) {
+		// TODO:  Handle this error?  I can't really think of a reason why we 
+		// would want to handle it.
+		return -1;
+	}
+
+	if(!isatty(this->portFileNo)) {
+		return -1;
+	}
+
 	this->lastHeartbeat = time(NULL);
 	this->savedPortName = new char[strlen(port.c_str()) + 1];
 	strcpy(this->savedPortName, port.c_str());
@@ -66,7 +73,7 @@ void SerialPort::init(string port, int baud) {
 	// Get the port attributes.
 	if(tcgetattr(SerialPort::portFileNo, &portOpts) == -1) {
 		printf("tcgetattr(%d, %p) error, errno=%d\n", SerialPort::portFileNo, &portOpts, errno);
-		exit(1);
+		return -1; // TODO:  Implement error handling.
 	}
 	
 	// I know we got the port options above, but we're going to clear
@@ -110,12 +117,12 @@ void SerialPort::init(string port, int baud) {
 	// Now set our serial input and output baud.
 	if(cfsetispeed(&portOpts, speedSelect)==-1) {
 		printf("cfsetispeed(%p, %d) error, errno=%s\n", &portOpts, speedSelect, strerror(errno));
-		exit(1);
+		return -1;
 	}
 	
 	if(cfsetospeed(&portOpts, speedSelect)==-1) {
 		printf("cfsetospeed(%p, %d) error, errno=%s\n", &portOpts, speedSelect, strerror(errno));
-		exit(1);
+		return -1;
 	}
 	
 	// Save the port options for heartbeats.
@@ -124,7 +131,13 @@ void SerialPort::init(string port, int baud) {
 	// Write our modified options to the port's settings.
 	if(tcsetattr(SerialPort::portFileNo, TCSANOW, &this->portOptions)==-1) {
 		printf("tcsetattr(%d, %d, %p) error, errno=%s\n", SerialPort::portFileNo, TCSANOW, &this->portOptions, strerror(errno));
-		exit(1);
+		if(errno == ENOTTY) {
+			// Inappropriate ioctl for device.
+			return -1; // TODO:  I think we should handle this, but up above we check to see if the fd is a tty.
+		} else {
+			return -1; // Something else went wrong.
+			// Should we handle this differently?
+		}
 	}
 	
 	// Now flush it so we start fresh.
@@ -137,23 +150,29 @@ void SerialPort::init(string port, int baud) {
 int SerialPort::reinit() {
 	printf("Reconnecting...\n");
 	
+	close(SerialPort::portFileNo);
+
+	return this->findPortsAndInit();
+}
+
+int SerialPort::findPortsAndInit() {
+	int baud = this->mBaud;
+
 	// TODO:  Change this to a setting in the settings file.
 	string portFileBase = string("/dev/ttyUSB");
 	vector<string> ports = findValidPorts(portFileBase);
-	
+
 	vector<string>::iterator port_itr;
 	for(port_itr = ports.begin(); port_itr < ports.end(); port_itr++) {
-		close(SerialPort::portFileNo);
-		SerialPort::portFileNo = open((*port_itr).c_str(), O_RDWR | O_NONBLOCK);
-		if(portFileNo == -1) {
-			return -2;
+		int err = init(*port_itr, baud);
+		if(err == 0) {
+			return 0; // init was successful.
+		} else if(err == -1) {
+			continue; // device was not a tty, or tcsetattr failed with ENOTTY
+			// We want to try the next device, if there was any.
 		}
-
-		close(SerialPort::portFileNo);
-		init(*port_itr, mBaud);
-		return 0;
 	}
-	
+
 	return -1;
 }
 
