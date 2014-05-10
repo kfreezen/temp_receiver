@@ -16,20 +16,6 @@ class SensorDB {
 public:
 	SensorDB();
 	virtual ~SensorDB();
-
-	/**
-	 *   bool AddNetwork(std::string net_id):  Checks for a network and adds it if necessary.
-	 *   net_id:  This is the 16-character (64-bit number) ID of the receiver's xbee,
-	 *   	used to identify the network.
-	 *
-	 *   This function asks the database to verify the receiver's network.  If the verification fails,
-	 *   the database adds the network to a list of "unclaimed" networks and the function returns false.
-	 *   If the verification succeeds, then the function returns true.
-	 *
-	 *   Returns:  true if the network already existed, and false if the network had to be created.
-	 *   Throws an exception if the argument is invalid.
-	 */
-	bool AddNetwork(std::string net_id);
 	
 	/**
 	 *   bool AddSensor(std::string net_id, std::string sensor_id):  Checks for a sensor and adds it to a network if necessary.

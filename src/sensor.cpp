@@ -84,9 +84,6 @@ void AddSensor(SensorId* id) {
 	
 	SensorDB db;
 
-	// Add the network if necessary.
-	db.AddNetwork(receiverId);
-	
 	// Add the sensor to the network DB.
 	db.AddSensor(receiverId, GetID(id));
 

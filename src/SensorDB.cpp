@@ -129,44 +129,6 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 	return size*nmemb;
 }
 
-bool SensorDB::AddNetwork(std::string net_id) {
-	if(net_id.length() != ID_LENGTH) {
-		printf("net_id.length()=%d, should equal 16.", net_id.length());
-		throw SensorDBException("net_id wrong length");
-	}
-
-	SimpleCurl curl;
-
-	string serverCallString = Settings::get("server") + string("/api/network/add");
-	char* cPOST = new char[128];
-	
-	string encodedNetworkId = curl.escape(net_id);
-
-	sprintf(cPOST, "{\"network_id\": \"%s\"}", encodedNetworkId.c_str());
-	
-	CURLBuffer* data = curl.post(serverCallString, string(cPOST));
-	if(data == NULL) {
-		return false;
-	}
-
-	bool retVal = false;
-
-	if(!strcmp(data->buffer, "true")) {
-		retVal = true;
-	} else if(!strcmp(data->buffer, "false")) {
-		retVal = false;
-	} else {
-		retVal = false;
-
-		logUnexpectedData(data);
-	}
-	
-	delete[] cPOST;
-	delete data;
-
-	return retVal;
-}
-
 bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	#ifdef DEBUG
 	printf("AddReportRun()\n");
@@ -196,7 +158,7 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	string encodedNetworkId = curl.escape(net_id);
 	string encodedSensorId = curl.escape(sensor_id);
 
-	sprintf(cPOST, "{\"network_id\": \"%s\", \"sensor_id\": \"%s\", \"recv_auth\": \"%s\"}", encodedNetworkId.c_str(), encodedSensorId.c_str(), RECV_AUTH);
+	sprintf(cPOST, "{\"sensor_id\": \"%s\", \"recv_auth\": \"%s\"}", encodedSensorId.c_str(), RECV_AUTH);
 
 	printf("%s:%s\n", serverCallString.c_str(), cPOST);
 	
