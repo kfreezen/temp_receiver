@@ -286,11 +286,23 @@ void SerialPort::heartbeat() {
 			int retries = 3;
 
 			while(retries --) {
-				if(::open(SerialPort::savedPortName, O_RDWR | O_NONBLOCK) == -1) {
-					fprintf(stderr, "heartbeat failed.  err %s\n", strerror(errno));
-					// Wait for 30 seconds...
-					sleep(30);
-				} else {
+				int err = ::open(SerialPort::savedPortName, O_RDWR | O_NONBLOCK);
+
+				if(err == -1) {
+					// Reinitialize here.
+					err = this->reinit();
+
+					// It still failed, so 
+					if(err == -1) {
+						fprintf(stderr, "heartbeat/reinit failed.\n", strerror(errno));
+						// Wait for 30 seconds...
+						sleep(30);
+					}
+				}
+
+				if(err != -1) {
+					// err != -1 indicates that either we could reopen the file or that we could reinitialize it successfully.
+					
 					SerialPort::lastHeartbeat = time(NULL);
 
 					// Set our saved port options, in case the port lost its settings.
@@ -304,6 +316,9 @@ void SerialPort::heartbeat() {
 			}
 
 			if(retries == 0) {
+				// Attempt to reinitialize the serial port.
+				this->reinit();
+
 				// we need to take more drastic action.
 				if(Settings::get("restart-on-failed-heartbeat") == "true") {
 					// since the settings have specified restart on failed heartbeat,
