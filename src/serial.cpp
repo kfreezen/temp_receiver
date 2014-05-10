@@ -145,6 +145,8 @@ int SerialPort::init(string port, int baud) {
 
 	setCharTmo(1000000000 / baud);
 	mBaud = baud;
+
+	return 0;
 }
 
 int SerialPort::reinit() {
@@ -166,8 +168,12 @@ int SerialPort::findPortsAndInit() {
 	for(port_itr = ports.begin(); port_itr < ports.end(); port_itr++) {
 		int err = init(*port_itr, baud);
 		if(err == 0) {
+			printf("Serial port init was successful.\n");
+
 			return 0; // init was successful.
 		} else if(err == -1) {
+			printf("Serial port init was not successful, trying another.\n");
+
 			continue; // device was not a tty, or tcsetattr failed with ENOTTY
 			// We want to try the next device, if there was any.
 		}
