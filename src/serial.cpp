@@ -294,30 +294,37 @@ void SerialPort::heartbeat() {
 			while(retries --) {
 				int err = ::open(SerialPort::savedPortName, O_RDWR | O_NONBLOCK);
 
-				if(err == -1) {
-					// Reinitialize here.
+				if(err != -1) {
+					// We successfully reopened the file, we want to make sure that it's still a 
+					// terminal though.  If it's not we reinit, if it is we reapply the port options.
+					if(!isatty(this->portFileNo)) {
+						err = this->reinit();
+
+						if(err == -1) {
+							fprintf(stderr, "heartbeat/reinit failed. %d, %s\n", __LINE__, strerror(errno));
+						} else {
+							break;
+						}
+					} else {
+						if(tcsetattr(this->portFileNo, TCSANOW, &this->portOptions)==-1) {
+							printf("tcsetattr(%d, %d, %p) error, errno=%s\n", this->portFileNo, TCSANOW, &this->portOptions, strerror(errno));						
+						} else {
+							break;
+						}
+					}
+
+					// If we get here, that means we are going to retry.
+					sleep(30);
+				} else {
 					err = this->reinit();
 
-					// It still failed, so 
-					if(err == -1) {
-						fprintf(stderr, "heartbeat/reinit failed.\n", strerror(errno));
+					if(err == -1) { // Reinit failed.
+						fprintf(stderr, "heartbeat/reinit failed. %d, %s\n", __LINE__, strerror(errno));
 						// Wait for 30 seconds...
 						sleep(30);
+					} else {
+						break;
 					}
-				}
-
-				if(err != -1) {
-					// err != -1 indicates that either we could reopen the file or that we could reinitialize it successfully.
-					
-					SerialPort::lastHeartbeat = time(NULL);
-
-					// Set our saved port options, in case the port lost its settings.
-					if(tcsetattr(this->portFileNo, TCSANOW, &this->portOptions)==-1) {
-						printf("tcsetattr(%d, %d, %p) error, errno=%s\n", this->portFileNo, TCSANOW, &this->portOptions, strerror(errno));
-						exit(1);
-					}
-
-					break;
 				}
 			}
 
