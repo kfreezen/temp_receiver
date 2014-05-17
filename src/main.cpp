@@ -95,8 +95,12 @@ void initReceiverId() {
 		idFile = fopen("receiver.id", "w");
 
 		SimpleCurl* _curl = new SimpleCurl();
-		string url = Settings::get("server") + string("/api/getid");
-		CURLBuffer* buf = _curl->get(url, "");
+		string url = Settings::get("server") + string("/api/id");
+
+		std::vector<string> headers;
+		headers.push_back("Accept-Version: 0.1");
+
+		CURLBuffer* buf = _curl->get(url, "", headers);
 		
 		if(buf == NULL) {
 			printf("warning:  Something went wrong.  buf should not be null.\n");
@@ -261,15 +265,14 @@ int main(int argc, char** argv) {
 	startWatchdogThread();
 
 	// Start our update checker.
-	pthread_t updateCheckerThread;
-	pthread_create(&updateCheckerThread, NULL, updateChecker, NULL);
+	// Currently disabled due to the unfinished state of the new API.
+	/*pthread_t updateCheckerThread;
+	pthread_create(&updateCheckerThread, NULL, updateChecker, NULL);*/
 
 	XBeeCommunicator::initDefault(port);
 	XBeeCommunicator* comm = XBeeCommunicator::getDefault();
 	comm->startDispatch();
 	comm->startHandler();
-
-	initReceiverId();
 
 	printf("We are go\n");
 

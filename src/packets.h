@@ -176,4 +176,6 @@ const char* GetErrorReportStr(int err);
 
 void* sensor_scanning_thread(void* p);
 
+uint64 getSensorId();
+
 #endif

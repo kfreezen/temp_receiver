@@ -9,6 +9,7 @@
 #include "sensor.h"
 #include "XBeeCommunicator.h"
 #include "util.h"
+#include "cJSON/cJSON.h"
 
 #include <cstdio>
 #include <cmath>
@@ -292,22 +293,9 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 
 			if(sensorId.uId == n) {
 				// Get a new sensor ID.
-				SimpleCurl* curl = new SimpleCurl();
-				string url = Settings::get("server") + string("/api/getid");
-				CURLBuffer* buf = curl->get(url, "");
-				
-				if(buf == NULL) {
-					printf("Something went wrong.  buf should not be null.\n");
-				} else {
-					sensorId.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
-				}
+				sensorId.uId = getSensorId();
 
-				printf("server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(sensorId.uId));
-				if(buf != NULL) {
-					delete buf;
-				}
-				
-				delete curl;
+				printf("sensorId=%lx\n", swap_endian_64(sensorId.uId));
 			}
 
 			// We need to put the sensor wdt reset spot in a file.
@@ -357,23 +345,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			uint64 n = 0;
 			n = ~n;
 			if(id.uId == n) {
-				// Get a new sensor ID.
-				SimpleCurl* curl = new SimpleCurl();
-				string url = Settings::get("server") + string("/api/getid");
-				CURLBuffer* buf = curl->get(url, "");
-				
-				if(buf == NULL) {
-					printf("warning:  Something went wrong.  buf should not be null.\n");
-				} else {
-					id.uId = swap_endian_64(strtoul(buf->buffer, NULL, 16));
-				}
-
-				printf("server=%s, sensorId=%lx\n", url.c_str(), swap_endian_64(id.uId));
-
-				if(buf != NULL) {
-					delete buf;
-				}
-				delete curl;
+				id.uId = getSensorId();
 			}
 
 			/*#ifdef PACKET_DEBUG_VERBOSE0
@@ -545,4 +517,41 @@ const char* errorReportStrings[] = {
 
 const char* GetErrorReportStr(int err) {
 	return errorReportStrings[err];
+}
+
+// Returns -1 if failure.  This is OK, because it's basically the sensor's default value anyway.
+// Returns an ID on success.
+uint64 getSensorId() {
+	SimpleCurl* curl = new SimpleCurl();
+	string url = Settings::get("server") + string("/api/id");
+
+	vector<string> headers;
+	headers.push_back("Accept-Version: 0.1");
+
+	CURLBuffer* buf = curl->get(url, "", headers);
+	
+	uint64 ret = ~0L;
+
+	if(buf == NULL) {
+		printf("Something went wrong.  buf should not be null.\n");
+	} else {
+		cJSON* json = cJSON_Parse(buf->buffer);
+		if(!json) {
+			printf("Something went wrong.  json should not be null. %s\n", buf->buffer);
+		} else {
+			cJSON* idItem = cJSON_GetObjectItem(json, "id");
+			if(idItem->type == cJSON_String) {
+				ret = swap_endian_64(strtoul(idItem->valuestring, NULL, 16));
+			} else if(idItem->type == cJSON_Number) {
+				ret = swap_endian_64(idItem->valueint);
+			}
+
+			cJSON_Delete(json);
+		}
+
+		delete curl;
+		delete buf;
+	}
+
+	return ret;
 }

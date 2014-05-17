@@ -132,7 +132,7 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 }
 
 bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
-	#ifdef DEBUG
+	/*#ifdef DEBUG
 	printf("AddReportRun()\n");
 	#endif
 	
@@ -184,10 +184,10 @@ bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	delete[] cPOST;
 	delete data;
 
-	return retVal;
+	return retVal;*/
 }
 
-#define TEMP_TYPE "temp"
+#define TEMP_TYPE "temperature"
 #define PROBE_NUM 0
 
 bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double probe0_value) {
@@ -220,7 +220,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	char* cPOST = NULL;
 
 	// Generate our reports structure for the web service.
-	cJSON* reportsData, reports, report, probe_data;
+	cJSON* reportsData, *reports, *report, *probe_data;
 	reportsData = cJSON_CreateObject();
 
 	cJSON_AddItemToObject(reportsData, "reports", reports = cJSON_CreateArray());
@@ -233,13 +233,13 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 
 	// Now, create the array of probes.
 	probe_data = cJSON_CreateArray();
-	for(i = 0; i < NUM_PROBES; i++) {
+	for(int i = 0; i < NUM_PROBES; i++) {
 		cJSON* probe;
 
 		cJSON_AddItemToArray(probe_data, probe = cJSON_CreateObject());
 		cJSON_AddNumberToObject(probe, "probe", i);
 		cJSON_AddNumberToObject(probe, "value", probeValues[i]);
-		cJSON_AddItemToObject(probe, "type", TEMP_TYPE);
+		cJSON_AddItemToObject(probe, "type", cJSON_CreateString(TEMP_TYPE));
 	}
 
 	cPOST = cJSON_Print(reportsData);
@@ -284,7 +284,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 			} else {
 				// Print errors to log.
 				int errorArraySize = cJSON_GetArraySize(errors);
-				for(i = 0; i < errorArraySize; i++) {
+				for(int i = 0; i < errorArraySize; i++) {
 					cJSON* error = cJSON_GetArrayItem(errors, i);
 
 					cJSON* errNumber = cJSON_GetObjectItem(error, "errno");
