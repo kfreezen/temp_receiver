@@ -85,8 +85,10 @@ void AddSensor(SensorId* id) {
 	SensorDB db;
 
 	// Add the sensor to the network DB.
-	db.AddSensor(receiverId, GetID(id));
-
+	//db.AddSensor(receiverId, GetID(id));
+	// We aren't adding to the network DB anymore, because POST /api/reports (AddReport) does that
+	// for us.
+	
 	sensorMap[*id] = sensor;
 }
 

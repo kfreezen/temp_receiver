@@ -22,6 +22,8 @@
 #include <cmath>
 #include <vector>
 
+#include "cJSON/cJSON.h"
+
 typedef struct {
 	std::string sensor_id;
 	time_t timestamp;
@@ -216,62 +218,99 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	string serverCallString = Settings::get("server") + string("/api/reports/add");
 	
 	char* cPOST = NULL;
-	try {
-		cPOST = new char[512];
-	} catch(bad_alloc& ba) {
-		printf("bad_alloc caught %s\n", ba.what());
-	}
-	
-	string sensor_id_encoded = curl.escape(sensor_id);
-	
-	// This JSON templating is bound to lead to countless problems.
-	// We need to invest in a JSON encoder for C++.
-	string probeValueStrings[NUM_PROBES];
-	stringstream ss;
-	int i;
+
+	// Generate our reports structure for the web service.
+	cJSON* reportsData, reports, report, probe_data;
+	reportsData = cJSON_CreateObject();
+
+	cJSON_AddItemToObject(reportsData, "reports", reports = cJSON_CreateArray());
+
+	cJSON_AddItemToArray(reports, report = cJSON_CreateObject());
+
+	cJSON_AddItemToObject(report, "sensor_id", cJSON_CreateString(sensor_id.c_str()));
+	cJSON_AddNumberToObject(report, "date_logged", timestamp);
+	cJSON_AddNumberToObject(report, "batt_level", batteryLevel);
+
+	// Now, create the array of probes.
+	probe_data = cJSON_CreateArray();
 	for(i = 0; i < NUM_PROBES; i++) {
-		ss.str("");
-		ss << probeValues[i];
-		probeValueStrings[i] = ss.str();
+		cJSON* probe;
+
+		cJSON_AddItemToArray(probe_data, probe = cJSON_CreateObject());
+		cJSON_AddNumberToObject(probe, "probe", i);
+		cJSON_AddNumberToObject(probe, "value", probeValues[i]);
+		cJSON_AddItemToObject(probe, "type", TEMP_TYPE);
 	}
 
-	sprintf(cPOST, "{ \
-			\"timestamp\": %lu, \
-			\"sensor_id\": \"%s\", \
-			\"probe_values\": \
-				[ \
-					{\"num\": 0, \"val\": \"%s\", \"type\": \"%s\"}, \
-			 		{\"num\": 1, \"val\": \"%s\", \"type\": \"%s\"}, \
-			 		{\"num\": 2, \"val\": \"%s\", \"type\": \"%s\"}], \
-			\"batt_level\": %f \
-			}", timestamp, sensor_id_encoded.c_str(), probeValueStrings[0].c_str(),
-			TEMP_TYPE, probeValueStrings[1].c_str(), TEMP_TYPE, probeValueStrings[2].c_str(), TEMP_TYPE,
-			batteryLevel
-		);
+	cPOST = cJSON_Print(reportsData);
+	cJSON_Delete(reportsData); // We're done with reportsData, so we need to delete it.
+
+	vector<string> postHeaders;
+	postHeaders.push_back("Accept-Version: 0.1");
 
 	int retries = 3;
 	CURLBuffer* buf = NULL;
-	while(buf == NULL && retries--) {
-		buf = curl.post(serverCallString, string(cPOST), POST_JSON);
+	while(retries--) {
+		buf = curl.post(serverCallString, string(cPOST), postHeaders, POST_JSON);
+
+		// buf == NULL indicates some sort of connection failure.
+		if(buf == NULL) {
+			continue;
+		} else if(curl.getResponseCode() != 201) {
+			// CURL response code should be 201
+			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
+			delete buf;
+
+			continue;
+		} else {
+			// Success.
+			break;
+		}
 	}
 
 	if(buf == NULL) {
 		// We should add this to a list of failed reports.
 		return false;
-	}
-	
-	if(!strcmp(buf->buffer, "true")) {
-		retVal = true;
-	} else if(!strcmp(buf->buffer, "false")) {
-		retVal = false;
 	} else {
-		retVal = false;
+		// Parse JSON, just in case there's some error info on the log.
+		cJSON* json = cJSON_Parse(buf->buffer);
 
-		printf("scs=%s, cPOST=%s\n", serverCallString.c_str(), cPOST);
+		if(!json) {
+			printf("Failed JSON parse, raw response = \"%s\"\n", buf->buffer);
+		} else {
+			cJSON* errors = cJSON_GetObjectItem(json, "errors");
+			if(!errors) {
+				return true;
+			} else {
+				// Print errors to log.
+				int errorArraySize = cJSON_GetArraySize(errors);
+				for(i = 0; i < errorArraySize; i++) {
+					cJSON* error = cJSON_GetArrayItem(errors, i);
 
-		logUnexpectedData(buf);
+					cJSON* errNumber = cJSON_GetObjectItem(error, "errno");
+					cJSON* errDesc = cJSON_GetObjectItem(error, "errdesc");
 
-		//printf("data:%s\n", buf->buffer);
+					// These two ifs are to make sure that error number and error description
+					// are the right types before we try to print them.
+					if(errNumber->type == cJSON_Number) {
+						printf("errno %d: ", errNumber->valueint);
+					}
+
+					if(errDesc->type == cJSON_String) {
+						printf("desc \"%s\"\n", errDesc->valuestring);
+					}
+				}
+
+				if(curl.getResponseCode() != 201) {
+					// Did not return a 201 Created.  We should store this in a list of failed reports.
+					// TODO
+					return false;
+				} else {
+					// Assume that everything was hunky-dory.
+					return true;
+				}
+			}
+		}
 	}
 
 	delete[] cPOST;

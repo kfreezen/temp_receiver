@@ -138,7 +138,7 @@ void SimpleCurl::download(string url, string fileName) {
 	}
 }
 
-CURLBuffer* SimpleCurl::get(string url, string data) {
+CURLBuffer* SimpleCurl::get(string url, string data, vector<string> headers) {
 	if(noWeb) {
 		return NULL;
 	}
@@ -147,6 +147,15 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	string fullUrl = url;
 	fullUrl += "?";
 	fullUrl += data;
+
+	// Insert headers here
+	struct curl_slist* headersList = NULL;
+
+	vector<string>::iterator itr;
+	for(itr = headers.begin(); itr < headers.end(); itr ++) {
+		string header = (*itr);
+		headersList = curl_slist_append(headersList, header.c_str());
+	}
 
 	#if CURL_DEBUG == 1
 	curl_easy_setopt(this->curlHandle, CURLOPT_VERBOSE, 1);
@@ -163,20 +172,26 @@ CURLBuffer* SimpleCurl::get(string url, string data) {
 	
 	int err = curl_easy_perform(this->curlHandle);
 
+	// Don't need our headers list anymore.
+	curl_slist_free_all(headersList);
+
 	if(err) {
 		printf("Something went wrong.  err=%d, get %s\n", err, fullUrl.c_str());
 		logInternetError(err, NULL, 0);
+
 
 		curl_easy_reset(this->curlHandle);
 		delete buf;
 		return NULL;
 	} else {
+		this->readCURLInfo();
+
 		curl_easy_reset(this->curlHandle);
 		return buf;
 	}
 }
 
-CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
+CURLBuffer* SimpleCurl::post(string url, string data, vector<string> headers, int postType) {
 	if(noWeb) {
 		return NULL;
 	}
@@ -198,37 +213,52 @@ CURLBuffer* SimpleCurl::post(string url, string data, int postType) {
 	curl_easy_setopt(this->curlHandle, CURLOPT_POST, 1);
 	curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIELDS, (void*) postfields);
 
-	struct curl_slist* headers = NULL;
+	struct curl_slist* headersList = NULL;
+
 	switch(postType) {
 		case POST_FORMDATA:
-			headers = curl_slist_append(headers, "Content-type: application/x-www-form-urlencoded");
+			headersList = curl_slist_append(headersList, "Content-type: application/x-www-form-urlencoded");
 			break;
 		case POST_JSON:
-			headers = curl_slist_append(headers, "Content-type: application/json");
+			headersList = curl_slist_append(headersList, "Content-type: application/json");
 			break;
 	}
 
-	curl_easy_setopt(this->curlHandle, CURLOPT_HTTPHEADER, headers);
+	// Add the rest of the headers here.
+	// We do a naive add, and don't worry if there's duplicates,
+	// the other way is kind-of a pain.
+	vector<string>::iterator itr;
+	for(itr = headers.begin(); itr < headers.end(); itr ++) {
+		string header = (*itr);
+		headersList = curl_slist_append(headersList, header.c_str());
+	}
+
+	curl_easy_setopt(this->curlHandle, CURLOPT_HTTPHEADER, headersList);
 
 	int err = curl_easy_perform(this->curlHandle);
 	if(err) {
 		printf("Something went wrong.  err=%d, post %s, args %s\n", err, url.c_str(), data.c_str());
 		logInternetError(err, NULL, 0);
 
-		curl_slist_free_all(headers);
+		curl_slist_free_all(headersList);
 		curl_easy_reset(this->curlHandle);
 		
 		delete[] postfields;
 		delete buf;
 		return NULL;
 	} else {
+		this->readCURLInfo();
 
-		curl_slist_free_all(headers);
+		curl_slist_free_all(headersList);
 		curl_easy_reset(this->curlHandle);
 		
 		delete[] postfields;
 		return buf;
 	}
+}
+
+void SimpleCurl::readCURLInfo() {
+	this->responseCode = curl_easy_getinfo(this->curlHandle, CURLINFO_RESPONSE_CODE);
 }
 
 #define SINGLE_LINE_DATA_LENGTH 24

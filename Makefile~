@@ -1,10 +1,14 @@
 CPP_SRC:=$(shell find src -mindepth 1 -maxdepth 3 -name "*.cpp")
+C_SRC:=$(shell find src -mindepth 1 -maxdepth 3 -name "*.c")
+
 HDR:=$(shell find src -mindepth 1 -maxdepth 3 -name "*.h")
 
-SOURCES:=$(patsubst %.cpp, %.o, $(CPP_SRC))
+CPP_SOURCES:=$(patsubst %.cpp, %.o, $(CPP_SRC))
+C_SOURCES:=$(patsubst %.c, %.o, $(C_SRC))
 
 CXX:=g++
-CXXFLAGS:=-std=gnu++11
+CC:=gcc
+CXXFLAGS:=-std=gnu++11 -g
 LDFLAGS:=`curl-config --libs` -pthread
 LD:=g++
 
