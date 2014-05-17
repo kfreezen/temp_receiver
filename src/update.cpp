@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
+#include <vector>
 
 extern string receiverId;
 
@@ -15,7 +16,7 @@ int doUpdateCheckerQuit = 0;
 void* updateChecker(void* arg) {
 	while(!doUpdateCheckerQuit) {
 		SimpleCurl curl;
-		CURLBuffer* buf = curl.get(Settings::get("server") + "/receiver/current_version", string(""));
+		CURLBuffer* buf = curl.get(Settings::get("server") + "/receiver/current_version", "", vector<string>());
 		if(buf == NULL) {
 			sleep(5);
 			continue;
@@ -45,7 +46,7 @@ void* updateChecker(void* arg) {
 		delete buf;
 
 		// Now, check the valid server
-		buf = curl.get(Settings::get("server") + "/receiver/valid_server", "");
+		buf = curl.get(Settings::get("server") + "/receiver/valid_server", "", vector<string>());
 		if(buf == NULL) {
 			sleep(5);
 			continue;
@@ -59,7 +60,7 @@ void* updateChecker(void* arg) {
 
 		if(serverStr != Settings::get("server")) {
 			// Test our new server for validity.
-			CURLBuffer* result = curl.get(serverStr + "/receiver/valid_server", "");
+			CURLBuffer* result = curl.get(serverStr + "/receiver/valid_server", "", vector<string>());
 			if(result == NULL) {
 				sleep(5);
 				continue;
@@ -91,7 +92,7 @@ void* updateChecker(void* arg) {
 				stringstream urlstr;
 				urlstr.str("");
 				urlstr << Settings::get("server") << "/api/network/" << receiverId << "/admin/command";
-				CURLBuffer* buf = curl.get(urlstr.str(), "");
+				CURLBuffer* buf = curl.get(urlstr.str(), "", vector<string>());
 				
 				if(buf != NULL) {
 				

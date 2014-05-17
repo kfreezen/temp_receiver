@@ -258,7 +258,10 @@ CURLBuffer* SimpleCurl::post(string url, string data, vector<string> headers, in
 }
 
 void SimpleCurl::readCURLInfo() {
-	this->responseCode = curl_easy_getinfo(this->curlHandle, CURLINFO_RESPONSE_CODE);
+	long responseCode;
+	curl_easy_getinfo(this->curlHandle, CURLINFO_RESPONSE_CODE, &responseCode);
+
+	this->responseCode = responseCode;
 }
 
 #define SINGLE_LINE_DATA_LENGTH 24
@@ -310,13 +313,13 @@ void logInternetError(int errorCode, const char* data, int length) {
 bool curlTest() {
 	SimpleCurl* _dcurl = new SimpleCurl();
 
-	CURLBuffer* buf = _dcurl->get("localhost:8089/fault/empty", "");
+	CURLBuffer* buf = _dcurl->get("localhost:8089/fault/empty", "", vector<string>());
 
 	if(buf) {
 		delete buf;
 	}
 
-	CURLBuffer* buf2 = _dcurl->post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
+	CURLBuffer* buf2 = _dcurl->post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}", vector<string>());
 
 	if(buf2) {
 		delete buf2;
@@ -330,9 +333,9 @@ bool curlTest() {
 	SimpleCurl curl;
 
 	// First off, we do testing for an empty response.
-	buf = curl.get("localhost:8089/fault/empty", "");
+	buf = curl.get("localhost:8089/fault/empty", "", vector<string>());
 	
-	buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}");
+	buf2 = curl.post("localhost:8089/fault/empty", "{\"arg0\": \"hi\"}", vector<string>());
 
 	if(buf) {
 		delete buf;
@@ -343,9 +346,9 @@ bool curlTest() {
 	}
 
 	// Now do the same on a nonexistant server.
-	buf = curl.get("localhost:8090", "");
+	buf = curl.get("localhost:8090", "", vector<string>());
 
-	buf2 = curl.post("localhost:8090", "{\"arg0\": \"hi\"}");
+	buf2 = curl.post("localhost:8090", "{\"arg0\": \"hi\"}", vector<string>());
 
 	if(buf) {
 		delete buf;
