@@ -215,8 +215,6 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	//curl_global_init(CURL_GLOBAL_ALL);
 	SimpleCurl curl;
 	
-	string serverCallString = Settings::get("server") + string("/api/reports/add");
-	
 	char* cPOST = NULL;
 
 	// Generate our reports structure for the web service.
@@ -246,6 +244,8 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	cJSON_Delete(reportsData); // We're done with reportsData, so we need to delete it.
 
 	vector<string> postHeaders;
+
+	string serverCallString = Settings::get("server") + string("/api/reports");
 	postHeaders.push_back("Accept-Version: 0.1");
 
 	int retries = 3;
@@ -259,6 +259,8 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		} else if(curl.getResponseCode() != 201) {
 			// CURL response code should be 201
 			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
+			
+
 			delete buf;
 
 			continue;
@@ -311,10 +313,11 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 				}
 			}
 		}
+
+		delete buf;
 	}
 
 	delete[] cPOST;
-	delete buf;
 
 	return retVal;
 }
