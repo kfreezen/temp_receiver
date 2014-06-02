@@ -216,7 +216,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	SimpleCurl curl;
 	
 	char* cPOST = NULL;
-
+	
 	// Generate our reports structure for the web service.
 	cJSON* reportsData, *reports, *report, *probe_data;
 	reportsData = cJSON_CreateObject();
@@ -225,19 +225,32 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 
 	cJSON_AddItemToArray(reports, report = cJSON_CreateObject());
 
-	cJSON_AddItemToObject(report, "sensor_id", cJSON_CreateString(sensor_id.c_str()));
+	cJSON_AddNumberToObject(report, "sensor_id", strtoul(sensor_id.c_str(), NULL, 16));
 	cJSON_AddNumberToObject(report, "date_logged", timestamp);
 	cJSON_AddNumberToObject(report, "batt_level", batteryLevel);
 
 	// Now, create the array of probes.
 	cJSON_AddItemToObject(report, "probe_data", probe_data = cJSON_CreateArray());
+<<<<<<< HEAD
 	
+=======
+>>>>>>> c3a18258f05ed1af180739919f7998d2e85c9be3
 	for(int i = 0; i < NUM_PROBES; i++) {
 		cJSON* probe;
+		
+		// (overloaded isnan(double&) is ambigious) compiler error gets thrown unless we
+		// un-ambiguate it with ::
+		if(::isnan(probeValues[i])) {
+			// Doesn't pay to process NaN, partly because JSON can't handle it, and
+			// partly because NaN is indicative of an invalid probe.  Skip this entry.
+			continue;
+		}
 
 		cJSON_AddItemToArray(probe_data, probe = cJSON_CreateObject());
 		cJSON_AddNumberToObject(probe, "probe", i);
+		
 		cJSON_AddNumberToObject(probe, "value", probeValues[i]);
+		
 		cJSON_AddItemToObject(probe, "type", cJSON_CreateString(TEMP_TYPE));
 	}
 
@@ -247,7 +260,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	vector<string> postHeaders;
 
 	string serverCallString = Settings::get("server") + string("/api/reports");
-	postHeaders.push_back("Accept-Version: 0.1");
+	postHeaders.push_back("Accept-Version: 0.2");
 
 	int retries = 3;
 	CURLBuffer* buf = NULL;
@@ -264,8 +277,8 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 			continue;
 		} else if(curl.getResponseCode() != 201) {
 			// CURL response code should be 201
+
 			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
-			
 			continue;
 		} else {
 			// Success.
@@ -320,6 +333,17 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 						retVal = true;
 					}
 				}
+
+				if(curl.getResponseCode() != 201) {
+					// Did not return a 201 Created.  We should store this in a list of failed reports.
+					// TODO
+					return false;
+				} else {
+					// Assume that everything was hunky-dory.
+					return true;
+				}
+
+				cJSON_Delete(json);
 			}
 		}
 
