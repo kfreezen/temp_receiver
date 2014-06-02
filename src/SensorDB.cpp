@@ -231,10 +231,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 
 	// Now, create the array of probes.
 	cJSON_AddItemToObject(report, "probe_data", probe_data = cJSON_CreateArray());
-<<<<<<< HEAD
-	
-=======
->>>>>>> c3a18258f05ed1af180739919f7998d2e85c9be3
+
 	for(int i = 0; i < NUM_PROBES; i++) {
 		cJSON* probe;
 		
