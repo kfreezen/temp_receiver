@@ -6,7 +6,7 @@
 
 #include "util.h"
 
-//#define CURL_DEBUG 0
+#define CURL_DEBUG 1
 
 using namespace std;
 
@@ -171,6 +171,10 @@ CURLBuffer* SimpleCurl::get(string url, string data, vector<string> headers) {
 	//curl_easy_setopt(this->curlHandle, CURLOPT_POSTFIEDS, (void*) data.c_str());
 	
 	int err = curl_easy_perform(this->curlHandle);
+	
+#ifdef CURL_DEBUG
+	printf("curl_easy_perform done.\n");
+#endif
 
 	// Don't need our headers list anymore.
 	curl_slist_free_all(headersList);
@@ -236,6 +240,11 @@ CURLBuffer* SimpleCurl::post(string url, string data, vector<string> headers, in
 	curl_easy_setopt(this->curlHandle, CURLOPT_HTTPHEADER, headersList);
 
 	int err = curl_easy_perform(this->curlHandle);
+
+#ifdef CURL_DEBUG
+	printf("curl_easy_perform done.\n");
+#endif
+
 	if(err) {
 		printf("Something went wrong.  err=%d, post %s, args %s\n", err, url.c_str(), data.c_str());
 		logInternetError(err, NULL, 0);
