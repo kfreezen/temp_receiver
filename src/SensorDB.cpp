@@ -230,7 +230,8 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	cJSON_AddNumberToObject(report, "batt_level", batteryLevel);
 
 	// Now, create the array of probes.
-	probe_data = cJSON_CreateArray();
+	cJSON_AddItemToObject(report, "probe_data", probe_data = cJSON_CreateArray());
+	
 	for(int i = 0; i < NUM_PROBES; i++) {
 		cJSON* probe;
 
@@ -251,6 +252,11 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	int retries = 3;
 	CURLBuffer* buf = NULL;
 	while(retries--) {
+		if(buf != NULL) {
+			delete buf;
+			buf = NULL;
+		}
+
 		buf = curl.post(serverCallString, string(cPOST), postHeaders, POST_JSON);
 
 		// buf == NULL indicates some sort of connection failure.
@@ -260,9 +266,6 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 			// CURL response code should be 201
 			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
 			
-
-			delete buf;
-
 			continue;
 		} else {
 			// Success.
@@ -272,44 +275,50 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 
 	if(buf == NULL) {
 		// We should add this to a list of failed reports.
-		return false;
+		retVal = false;
 	} else {
-		// Parse JSON, just in case there's some error info on the log.
-		cJSON* json = cJSON_Parse(buf->buffer);
-
-		if(!json) {
-			printf("Failed JSON parse, raw response = \"%s\"\n", buf->buffer);
+		if(buf->buffer == NULL) {
+			printf("buf->buffer == NULL\n");
+			retVal = false;
 		} else {
-			cJSON* errors = cJSON_GetObjectItem(json, "errors");
-			if(!errors) {
-				return true;
+
+			// Parse JSON, just in case there's some error info on the log.
+			cJSON* json = cJSON_Parse(buf->buffer);
+
+			if(!json) {
+				printf("Failed JSON parse, raw response = \"%s\"\n", buf->buffer);
 			} else {
-				// Print errors to log.
-				int errorArraySize = cJSON_GetArraySize(errors);
-				for(int i = 0; i < errorArraySize; i++) {
-					cJSON* error = cJSON_GetArrayItem(errors, i);
-
-					cJSON* errNumber = cJSON_GetObjectItem(error, "errno");
-					cJSON* errDesc = cJSON_GetObjectItem(error, "errdesc");
-
-					// These two ifs are to make sure that error number and error description
-					// are the right types before we try to print them.
-					if(errNumber->type == cJSON_Number) {
-						printf("errno %d: ", errNumber->valueint);
-					}
-
-					if(errDesc->type == cJSON_String) {
-						printf("desc \"%s\"\n", errDesc->valuestring);
-					}
-				}
-
-				if(curl.getResponseCode() != 201) {
-					// Did not return a 201 Created.  We should store this in a list of failed reports.
-					// TODO
-					return false;
-				} else {
-					// Assume that everything was hunky-dory.
+				cJSON* errors = cJSON_GetObjectItem(json, "errors");
+				if(!errors) {
 					return true;
+				} else {
+					// Print errors to log.
+					int errorArraySize = cJSON_GetArraySize(errors);
+					for(int i = 0; i < errorArraySize; i++) {
+						cJSON* error = cJSON_GetArrayItem(errors, i);
+
+						cJSON* errNumber = cJSON_GetObjectItem(error, "errno");
+						cJSON* errDesc = cJSON_GetObjectItem(error, "errdesc");
+
+						// These two ifs are to make sure that error number and error description
+						// are the right types before we try to print them.
+						if(errNumber->type == cJSON_Number) {
+							printf("errno %d: ", errNumber->valueint);
+						}
+
+						if(errDesc->type == cJSON_String) {
+							printf("desc \"%s\"\n", errDesc->valuestring);
+						}
+					}
+
+					if(curl.getResponseCode() != 201) {
+						// Did not return a 201 Created.  We should store this in a list of failed reports.
+						// TODO
+						retVal = false;
+					} else {
+						// Assume that everything was hunky-dory.
+						retVal = true;
+					}
 				}
 			}
 		}
@@ -317,7 +326,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		delete buf;
 	}
 
-	delete[] cPOST;
+	free(cPOST);
 
 	return retVal;
 }

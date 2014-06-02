@@ -11,6 +11,8 @@
 
 using std::deque;
 
+#define COMM_QUIT 255
+
 const int XBeeCommunicator::MAX_CONCURRENT_COMMS = 255;
 XBeeCommunicator* XBeeCommunicator::defaultComm = NULL;
 
@@ -34,6 +36,11 @@ XBeeCommunicator::XBeeCommunicator(SerialPort* port) {
 
 XBeeCommunicator::~XBeeCommunicator() {
 	// Figure out how to get that one thread to exit.
+
+	// These is bad way to do thing, but I'm too lazy to do other way until
+	// run into problem.
+	//pthread_kill(*this->dispatchThread, SIGTERM);
+	//pthread_kill(*this->handlerThread, SIGTERM);
 
 	delete this->dispatchThread;
 	delete this->handlerThread;
@@ -178,9 +185,10 @@ int XBeeCommunicator::registerRequest(XBeeCommRequest request) {
 }
 
 void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
-	
+	bool quit = false;
 
-	while(1) {
+	while(!quit) {
+
 		bool commStructAllocated = false;
 
 		// Read frame in.
@@ -188,7 +196,7 @@ void* XBeeCommunicator::handler(XBeeCommunicator* comm) {
 		memset(frame, 0, sizeof(Frame));
 
 		XBAPI_ReadFrame(comm->serialPort, frame);
-		
+
 		// Now, we need to determine which commStruct
 		// that this one replied to.
 		int commId = frame->txStatus.frame_id;
@@ -323,6 +331,10 @@ void* XBeeCommunicator::dispatcher(XBeeCommunicator* comm) {
 
 				case COMM_TRANSMIT:
 					XBAPI_TransmitInternal(comm->serialPort, (XBeeAddress*) request.destination, request.data, commId, request.dataLength, &comm->xbeeComms[commId-1]);
+
+					// Done with request, so we should probably delete request.data.
+					delete[] request.data;
+					
 					break;
 			}
 		}

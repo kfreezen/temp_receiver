@@ -8,6 +8,8 @@ ash@digitalnemesis.com
 
 ***/
 
+#include <cstdio>
+
 #include "crc16.h"
 /* 
  * CRC16 Lookup tables (High and Low Byte) for 4 bits per iteration. 
@@ -32,6 +34,8 @@ unsigned char CRC16_High, CRC16_Low;
  */
 void CRC16_Init( void )
 {
+	printf("CRC16_Init()\n");
+
 	// Initialise the CRC to 0xFFFF for the CCITT specification
 	CRC16_High = 0xFF;
 	CRC16_Low = 0xFF;
@@ -88,3 +92,51 @@ unsigned char CRC16_GetLow() { // TEEHEE GET LOW!
     return CRC16_Low;
 }
 
+void CRC16::init() {
+	this->CRC16_High = 0xFF;
+	this->CRC16_Low = 0xFF;
+}
+
+void CRC16::update( unsigned char val ) {
+	this->update4Bits(val >> 4);
+	this->update4Bits(val & 0x0F);
+}
+
+void CRC16::update4Bits(unsigned char val) {
+	unsigned char t = 0;
+
+	// Step one, extract the Most significant 4 bits of the CRC register
+	t = this->CRC16_High >> 4;
+
+	// XOR in the Message Data into the extracted bits
+	t = t ^ val;
+
+	// Shift the CRC Register left 4 bits
+	this->CRC16_High = (this->CRC16_High << 4) | (this->CRC16_Low >> 4);
+	this->CRC16_Low = this->CRC16_Low << 4;
+
+	unsigned char thingy = CRC16_LookupHigh[t];
+	
+	// Do the table lookups and XOR the result into the CRC Tables
+	this->CRC16_High = this->CRC16_High ^ CRC16_LookupHigh[t];
+	this->CRC16_Low = this->CRC16_Low ^ CRC16_LookupLow[t];
+}
+
+unsigned short CRC16::generate(unsigned char* msg, int len) {
+	this->init();
+
+	int i;
+	for(i = 0; i < len; i++) {
+		this->update(msg[i]);
+	}
+
+	return (this->CRC16_High << 8) | this->CRC16_Low;
+}
+
+unsigned char CRC16::getLow() { // TEEHEE GET LOW!
+	return this->CRC16_Low;
+}
+
+unsigned char CRC16::getHigh() {
+	return this->CRC16_High;
+}

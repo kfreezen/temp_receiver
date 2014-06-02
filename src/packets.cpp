@@ -87,7 +87,9 @@ void SendReceiverAddress(XBeeCommunicator* comm, XBeeAddress* dest, int id) {
 	packet_buffer.header.command = REQUEST_RECEIVER;
 	packet_buffer.header.magic = 0xAA55;
 	packet_buffer.header.revision = PROGRAM_REVISION;
-	packet_buffer.header.crc16 = CRC16_Generate((byte*)&packet_buffer, sizeof(PacketRev0));
+
+	CRC16 crcGen;
+	packet_buffer.header.crc16 = crcGen.generate((byte*)&packet_buffer, sizeof(PacketRev0));
 
 	SendPacket(comm, REVISION_0, dest, &packet_buffer, id);
 }
@@ -111,73 +113,6 @@ void HandlePacket(XBeeCommunicator* comm, Frame* apiFrame) {
 			cb->handlePacketCallback(comm, apiFrame);
 		}
 	}
-
-	/*switch(packet->header.command) {
-		case REQUEST_RECEIVER: {
-			#ifdef PACKETS_DEBUG
-			printf("receiver request\n");
-			#endif
-			
-			XBeeAddress xbee_addr;
-			xbee_addr = apiFrame->rx.source_address; 
-
-			SendReceiverAddress(port, &xbee_addr);
-			
-			if(GetSensorMap()[xbee_addr] == NULL) {
-				AddSensor(&xbee_addr); // It should be adding here, but it's not.  It's waiting till the report.  FIXME
-			}
-			
-			#ifdef PACKET_DEBUG
-			LogEntry entry;
-			entry.sensorId = xbee_addr;
-			entry.time = time(NULL);
-			
-			Logger_AddEntry(&entry, REQUEST_RECEIVER);
-			#endif
-			
-			SensorUpdate(&xbee_addr); // This will update the receiver struct and let the other thread know not to throw a fit.
-		} break;
-
-		case REPORT: {
-			//hexdump(packet, 32);
-			int resistance = packet->report.thermistorResistance;
-			int res25C = packet->report.thermistorResistance25C;
-			int probeBeta = packet->report.thermistorBeta;
-			
-			double probe0_temp = 1.0 / ((log((double)resistance / res25C) / probeBeta)+(1/(ZEROC_INKELVIN+25))) - ZEROC_INKELVIN;
-			
-			#ifdef PACKET_DEBUG_VERBOSE0
-			printf("probe0_temp=%f\n", probe0_temp);
-			#endif
-			
-			// We get to do this because some guy thought it was a brilliant idea to use 7 byte addresses instead of 8 byte on the receive indicator.
-			XBeeAddress address;
-			address = apiFrame->rx.source_address;
-			
-			#ifdef PACKET_DEBUG_VERBOSE0
-			LogEntry entry;
-			entry.resistance = packet->report.thermistorResistance;
-
-			entry.sensorId = address;
-			entry.time = time(NULL);
-			entry.xbee_reset = apiFrame->rx.packet.report.xbee_reset;
-
-			Logger_AddEntry(&entry, packet->header.command);
-			#endif
-			
-			if(GetSensorMap()[address] == NULL) {
-				AddSensor(&address);
-			}
-			
-			// Make sure our internal representation of this 
-			// sensor stays alive.
-			SensorUpdate(&address);
-			
-			// Add report.
-			SensorDB db;
-			db.AddReport(GetXBeeID(&address), time(NULL), probe0_temp);
-		} break;
-	}*/
 }
 
 extern uint32 swap_endian_32(uint32);
@@ -227,7 +162,8 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	unsigned short crc16 = packet->header.crc16;
 	packet->header.crc16 = 0;
 	
-	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev1));
+	CRC16 crcGen;
+	unsigned short calc_crc16 = crcGen.generate((unsigned char*)packet, sizeof(PacketRev1));
 	
 	if(calc_crc16 != crc16) {
 		printf("CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
@@ -276,10 +212,13 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			reply->header.sensorId.uId = 0;
 
 			hexdump(reply, sizeof(PacketRev1));
-			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
+
+			CRC16 crcGen;
+			reply->header.crc16 = crcGen.generate((byte*)&packet, sizeof(PacketRev1));
 			
 			SendPacket(comm, REVISION_1, &xbee_addr, reply, 0);
-			
+			delete reply;
+
 			// TODO:  Figure out if there is a leak here.  I think the xbee communicator takes care of stuff it gets, but I'm not sure.
 		} break;
 
@@ -311,10 +250,14 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			reply->header.command = RECEIVER_ACK;
 			reply->header.sensorId = sensorId;
 			hexdump(reply, sizeof(PacketRev1));
-			reply->header.crc16 = CRC16_Generate((byte*)&packet, sizeof(PacketRev1));
+
+			CRC16 crcGen;
+
+			reply->header.crc16 = crcGen.generate((byte*)&packet, sizeof(PacketRev1));
 			
 			SendPacket(comm, REVISION_1, &xbee_addr, reply, 0);
-
+			delete reply;
+			
 			if(GetSensorMap()[sensorId] == NULL) {
 				AddSensor(&sensorId);
 			}
@@ -396,7 +339,8 @@ void HandlePacketRev0(XBeeCommunicator* comm, Frame* apiFrame) {
 	unsigned short crc16 = packet->header.crc16;
 	packet->header.crc16 = 0;
 	
-	unsigned short calc_crc16 = CRC16_Generate((unsigned char*)packet, sizeof(PacketRev0));
+	CRC16 crcGen;
+	unsigned short calc_crc16 = crcGen.generate((unsigned char*)packet, sizeof(PacketRev0));
 	
 	if(calc_crc16 != crc16) {
 		printf("CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev0));

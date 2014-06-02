@@ -6,6 +6,8 @@
 
 #include <pthread.h>
 
+#include "serial.h"
+
 #define MAX_DISPATCH_WAIT_NS 250000000
 extern const struct timespec MAX_DISPATCH_WAIT;
 

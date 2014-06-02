@@ -73,9 +73,8 @@ int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, i
 	request.callback = NULL;
 	request.destination = address;
 	
-	request.data = buffer;
-	//request.data = new unsigned char [length];
-	//memcpy(request.data, buffer, length);
+	request.data = new unsigned char [length];
+	memcpy(request.data, buffer, length);
 
 	request.dataLength = length;
 	request.commType = COMM_TRANSMIT;
@@ -87,6 +86,8 @@ int XBAPI_Transmit(XBeeCommunicator* comm, XBeeAddress* address, void* buffer, i
 
 void XBAPI_TransmitInternal(SerialPort* port, XBeeAddress* address, void* buffer, int id, int length, XBeeCommStruct* commStruct) {
 	Frame apiFrame;
+	memset(&apiFrame, 0, sizeof(Frame));
+	
 	int size = 0;
 
 	if(length == sizeof(PacketRev0)) {

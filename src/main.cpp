@@ -53,6 +53,16 @@ void exitCleanup() {
 void sigterm_handler(int sig, siginfo_t* siginfo, void* context) {
 	printf("sigterm.  from %d, sig=%d, exiting...\n", siginfo->si_pid, sig);
 	
+	// Prevent these signal handlers from executing twice.
+
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = SIG_DFL;
+	action.sa_flags = SA_SIGINFO;
+
+	sigaction(SIGINT, &action, NULL);
+	sigaction(SIGTERM, &action, NULL);
+
 	exitCleanup();
 
 	exit(0);
@@ -64,6 +74,16 @@ void sigquit_action_handler(int sig, siginfo_t* siginfo, void* context) {
 
 void sigint_action_handler(int sig, siginfo_t* siginfo, void* context) {
 	printf("SIGINT received from %d, exiting...\n", siginfo->si_pid);
+
+	// Prevent these signal handlers from executing twice.
+
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = SIG_DFL;
+	action.sa_flags = SA_SIGINFO;
+
+	sigaction(SIGINT, &action, NULL);
+	sigaction(SIGTERM, &action, NULL);
 
 	exitCleanup();
 
