@@ -1,8 +1,9 @@
 log.txt
 receiver
-stdout_log.log
+*.log
 *~
 .*.swp
 .*.swo
 *.o
+receiver_settings
 receiver.id

@@ -144,6 +144,7 @@ extern unsigned swap_endian_32(unsigned n);
 extern int xbeeDebug;
 extern int noWeb;
 extern bool watchdogEnabled;
+bool serverCommDisabled = false;
 
 int main(int argc, char** argv) {
 	// Not sure if this setvbuf is necessary anymore.
@@ -171,6 +172,8 @@ int main(int argc, char** argv) {
 			packetsDebug = 1;
 		} else if(!strcmp(argv[i], "--no-wdt")) {
 			watchdogEnabled = false;
+		} else if(!strcmp(argv[i], "--no-servercomm")) {
+			serverCommDisabled = true;
 		}
 
 	}
@@ -302,7 +305,10 @@ int main(int argc, char** argv) {
 	delete[] buffer;
 
 	ServerComm* serverComm = new ServerComm;
-	serverComm->start();
+	
+	if(!serverCommDisabled) {
+		serverComm->start();
+	}
 	
 	printf("We are starting the loop\n");
 
