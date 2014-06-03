@@ -93,14 +93,15 @@ void* WatchdogThread(void* arg) {
 	vector<Watchdog*>::iterator itr;
 	Watchdog* minWatchdog;
 
+	struct timespec pollTime;
+
+	pollTime.tv_sec = 0;
+	pollTime.tv_nsec = 5000000;
+
 	while(watchdogComm != WATCHDOG_QUIT) {
 		
 		// These should probably be moved outside the while loop.
 		struct timespec absTimeout, curTime;
-
-		struct timespec minTime;
-		minTime.tv_sec = ~0;
-		minTime.tv_nsec = 9999999;
 
 		// OK, we want to figure out the minimum time we need to wait
 		for(itr = watchdogs.begin(); itr < watchdogs.end(); itr++) {
@@ -111,28 +112,9 @@ void* WatchdogThread(void* arg) {
 				// The current itr is now pointing to a dead Watchdog, so delete it.
 				delete *itr;
 				itr = watchdogs.erase(itr);
-				continue;
-			} else {
-				// If expired is true, we want to get the cached expire time.  This should help
-				// reduce the amount of add_timespecs bloating our code.
-				absTimeout = (*itr)->getCachedExpireTime();
-			}
-
-			curTime = (*itr)->getCachedCurTime();
-			struct timespec timeLeft = sub_timespec(absTimeout, curTime);
-			if(compare_timespec(timeLeft, minTime) < 0) {
-				minTime = timeLeft;
-				minWatchdog = (*itr);
 			}
 		}
 
-		pthread_mutex_lock(&watchdogsCondMutex);
-
-		// It doesn't matter if this gets interrupted by something else.
-		curTime = now(); //minWatchdog->getCachedCurTime();
-		minTime = add_timespec(curTime, minTime);
-		pthread_cond_timedwait(&watchdogsCond, &watchdogsCondMutex, &minTime);
-		
-		pthread_mutex_unlock(&watchdogsCondMutex);
+		nanosleep(&pollTime, NULL);
 	}
 }
