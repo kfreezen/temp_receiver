@@ -49,6 +49,12 @@ public:
 	// This tells us whether the WDT for this thread has expired. 
 	bool expired();
 
+	// This is to reduce number of add_timespec calls by watchdog thread.
+	struct timespec getCachedExpireTime();
+	struct timespec getCachedCurTime() {
+		return this->cachedCurTime;
+	}
+
 	void restartThread();
 private:
 	char* id;
@@ -60,6 +66,10 @@ private:
 
 	struct timespec lastReset;
 	void* userData;
+
+	struct timespec cachedExpireTime;
+	struct timespec cachedCurTime;
+
 };
 
 void startWatchdogThread();
