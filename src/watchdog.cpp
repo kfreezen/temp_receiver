@@ -32,7 +32,7 @@ void Watchdog::reset() {
 }
 
 bool Watchdog::expired() {
-	struct timespec curTime;
+	struct timespec curTime = {0,0};
 	clock_gettime(CLOCK_REALTIME, &curTime);
 
 	this->cachedCurTime = curTime;

@@ -334,10 +334,10 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 				if(curl.getResponseCode() != 201) {
 					// Did not return a 201 Created.  We should store this in a list of failed reports.
 					// TODO
-					return false;
+					retVal = false;
 				} else {
 					// Assume that everything was hunky-dory.
-					return true;
+					retVal = true;
 				}
 
 				cJSON_Delete(json);
