@@ -300,7 +300,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 			} else {
 				cJSON* errors = cJSON_GetObjectItem(json, "errors");
 				if(!errors) {
-					return true;
+					retVal = true;
 				} else {
 					// Print errors to log.
 					int errorArraySize = cJSON_GetArraySize(errors);

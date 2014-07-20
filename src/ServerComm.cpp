@@ -43,7 +43,9 @@ ServerComm::ServerComm() {
 	if(ServerComm::comm == NULL) {
 		ServerComm::comm = this;
 	}
-
+	
+	this->socketFd = -1;
+	
 	// Initialize our condition variable for sends.
 	pthread_cond_init(&this->sendCond, NULL);
 	// And its mutex.
@@ -179,6 +181,12 @@ void ServerComm::cleanup() {
 	}
 
 	this->heartbeatThreadComm = 0;
+
+	if(this->socketFd > 0) {
+		close(this->socketFd);
+		this->socketFd = -1;
+	}
+
 }
 
 #define ERRSTR_SIZE 256
