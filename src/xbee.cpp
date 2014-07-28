@@ -294,7 +294,6 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 				case 1:
 					*((unsigned char*)data) = apiFrame->atCmdResponse.data_checksum[0];
-					printf("Got it 1.  data = %x\n", *((byte*)data));
 					break;
 					
 				case 2:
@@ -303,7 +302,6 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					break;
 				case 4:
 					*((unsigned*)data) = swap_endian_32(*((unsigned*)apiFrame->atCmdResponse.data_checksum));
-					printf("Got it.  data = %x\n", *((unsigned*)data));
 					break;
 					
 				default:
@@ -327,8 +325,6 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 					// Now we need to log the signal strength.
 					extern SensorId lastPacketSensorId; // Defined in packets.cpp.  You should not do things like this.
 					logSignalStrength(lastPacketSensorId, -signalStrength);
-
-					printf("c__ %x, %d, %d\n", apiFrame->atCmdResponse.command, returnValue, -signalStrength);
 				} else {
 					Logger_Print(ERROR, time(NULL), "Command error %d\n", returnValue);
 				}
@@ -349,6 +345,8 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 		} break;
 
 		default: {
+			printf("Unrecognized %x\n", apiFrame->rx.rev0.frame_type);
+
 			if(xbeeDebug) {
 				hexdump(&apiFrame, sizeof(apiFrame));
 			}

@@ -114,4 +114,8 @@ void fhexdump(FILE* f, void* ptr, int len) {
 	for(i=0; i<len; i++) {
 		fprintf(f, "%x%c", addr[i], (i%16 || i == 0) ? ' '  : '\n');
 	}
+
+	if(i % 16) {
+		fprintf(f, "\n");
+	}
 }
