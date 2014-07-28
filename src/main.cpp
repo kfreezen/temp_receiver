@@ -271,6 +271,7 @@ int main(int argc, char** argv) {
 		} catch(SerialPortException e) {
 			// Didn't find a valid port, wait one second and try again.
 			if(--portRetries) {
+				printf("Valid port not found. Trying again. %d retries left.\n", portRetries);
 				sleep(1);
 			} else {
 				printf("We did not find a valid port.\n");

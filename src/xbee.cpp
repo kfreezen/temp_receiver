@@ -347,9 +347,7 @@ int XBAPI_HandleFrameCallback(XBeeCommunicator* comm, XBeeCommStruct* commStruct
 		default: {
 			printf("Unrecognized %x\n", apiFrame->rx.rev0.frame_type);
 
-			if(xbeeDebug) {
-				hexdump(&apiFrame, sizeof(apiFrame));
-			}
+			hexdump(&apiFrame, sizeof(apiFrame));
 
 			// TODO:  Add more status handlers.
 			return 1;
