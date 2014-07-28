@@ -48,7 +48,8 @@ ServerComm::ServerComm() {
 	pthread_cond_init(&this->sendCond, NULL);
 	// And its mutex.
 	pthread_mutex_init(&this->sendCondMutex, NULL);
-
+	
+	this->socketFd = -1;
 }
 
 void ServerComm::start() {
@@ -179,11 +180,18 @@ void ServerComm::cleanup() {
 	}
 
 	this->heartbeatThreadComm = 0;
+	
+	if(this->socketFd >= 0) {
+		close(comm->socketFd);
+		comm->socketFd = -1;
+	}
 }
 
 #define ERRSTR_SIZE 256
 void* ServerComm::CommThread(void* arg) {
 	ServerComm* comm = static_cast<ServerComm*>(arg);
+
+	void* retVal = NULL;
 
 doRetry:
 	struct addrinfo* result = NULL;
@@ -191,7 +199,7 @@ doRetry:
 
 	char* portStr = NULL;
 
-	while(1) {
+	while(1) {	
 		if(result != NULL) {
 			freeaddrinfo(result);
 			result = NULL;
@@ -289,7 +297,6 @@ doRetry:
 				Logger_Print(ERROR, time(NULL), "ack was not successful.\n%s\n", errorContent);
 				delete[] errorContent;
 
-				close(comm->socketFd);
 				sleep(30);
 				continue;
 			}
