@@ -347,6 +347,8 @@ void SerialPort::heartbeat() {
 			}
 		}
 	}
+
+	SerialPort::lastHeartbeat = time(NULL);
 }
 
 void SerialPort::clearVars() {
