@@ -131,6 +131,49 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 	return size*nmemb;
 }
 
+// Returns number of retries left.  non-zero (truthy) indicates success.  zero (falsy) indicates failure.
+bool SensorDB::AddReceiver(std::string receiver_id) {
+	SimpleCurl curl;
+
+	string callString = Settings::get("server") + string("/api/receivers");
+	cJSON* data;
+
+	data = cJSON_CreateObject();
+	cJSON_AddNumberToObject(report, "receiver_id", strtoul(receiver_id.c_str(), NULL, 16));
+
+	cPOST = cJSON_Print(data);
+	cJSON_Delete(data); // We're done with reportsData, so we need to delete it.
+
+	vector<string> postHeaders;
+
+	string serverCallString = Settings::get("server") + string("/api/reports");
+	postHeaders.push_back("Accept-Version: 0.1");
+
+	int retries = 3;
+	CURLBuffer* buf = NULL;
+	while(retries--) {
+		if(buf != NULL) {
+			delete buf;
+			buf = NULL;
+		}
+
+		buf = curl.post(serverCallString, string(cPOST), postHeaders, POST_JSON);
+
+		if(buf == NULL) {
+			// Something failed.
+			continue;
+		} else if(curl.getResponseCode() != 200) {
+			printf("CURL error:  Response code = %d, buffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
+		} else {
+			break;
+		}
+	}
+
+	free(cPOST);
+
+	return retries;
+}
+
 bool SensorDB::AddSensor(std::string net_id, std::string sensor_id) {
 	/*#ifdef DEBUG
 	printf("AddReportRun()\n");
@@ -257,7 +300,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 	vector<string> postHeaders;
 
 	string serverCallString = Settings::get("server") + string("/api/reports");
-	postHeaders.push_back("Accept-Version: 0.2");
+	postHeaders.push_back("Accept-Version: 0.1");
 
 	int retries = 3;
 	CURLBuffer* buf = NULL;
