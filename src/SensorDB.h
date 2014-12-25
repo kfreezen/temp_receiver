@@ -9,7 +9,7 @@
 #define SENSORDB_H_
 
 #include <string>
-
+#include "util.h"
 void loadSettings(const char* file);
 
 class SensorDB {
@@ -30,7 +30,9 @@ public:
 	 *   Throws an exception if the arguments are invalid.
 	 */
 	 bool AddSensor(std::string net_id, std::string sensor_id);
-	 
+
+	 bool AddReceiver(uint64 receiver_id);
+
 	 /**
 	  *  bool AddReport(std::string sensor_id, time_t time, double probe0_temp):  Adds a report for a specified time.
 	  *

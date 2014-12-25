@@ -11,7 +11,7 @@
 #include <string>
 
 extern XBeeAddress receiver_addr; // TODO:  Get rid of this extern
-extern string receiverId;
+extern uint64 receiverId;
 
 using namespace std;
 

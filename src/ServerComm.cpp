@@ -272,11 +272,17 @@ doRetry:
 			RSCPContent content;
 			content.setRequest(CONNECT);
 
-			extern string receiverId;
-			content.addLine("id", receiverId.c_str());
+			extern uint64 receiverId;
+
+			char* idStr = new char[32];
+			snprintf(idStr, 31, "%ld", receiverId);
+
+			content.addLine("id", idStr);
 			content.addLine("version", VERSION_STR);
 
 			content.sendToSocket(comm->socketFd);
+			
+			delete[] idStr;
 
 			/*char* contentStr = content.getContentAsString();
 

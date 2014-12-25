@@ -6,7 +6,7 @@
 
 #include "util.h"
 
-#define CURL_DEBUG 1
+//#define CURL_DEBUG 1
 
 using namespace std;
 

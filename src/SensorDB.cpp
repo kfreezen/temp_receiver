@@ -132,21 +132,20 @@ int processData(char* _buffer, int size, int nmemb, void* userPointer) {
 }
 
 // Returns number of retries left.  non-zero (truthy) indicates success.  zero (falsy) indicates failure.
-bool SensorDB::AddReceiver(std::string receiver_id) {
+bool SensorDB::AddReceiver(uint64 receiver_id) {
 	SimpleCurl curl;
 
-	string callString = Settings::get("server") + string("/api/receivers");
 	cJSON* data;
 
 	data = cJSON_CreateObject();
-	cJSON_AddNumberToObject(report, "receiver_id", strtoul(receiver_id.c_str(), NULL, 16));
+	cJSON_AddNumberToObject(data, "receiver_id", receiver_id);
 
-	cPOST = cJSON_Print(data);
+	char* cPOST = cJSON_Print(data);
 	cJSON_Delete(data); // We're done with reportsData, so we need to delete it.
 
 	vector<string> postHeaders;
 
-	string serverCallString = Settings::get("server") + string("/api/reports");
+	string serverCallString = Settings::get("server") + string("/api/receivers");
 	postHeaders.push_back("Accept-Version: 0.1");
 
 	int retries = 3;

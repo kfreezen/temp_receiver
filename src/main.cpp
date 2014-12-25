@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "cJSON/cJSON.h"
 #include "xbee.h"
 #include "globaldef.h"
 #include "serial.h"
@@ -35,7 +36,7 @@ char* log_buffer;
 // I feel dirty using these globals, but alas, I'm too lazy to do anything else.
 
 XBeeAddress receiver_addr;
-string receiverId;
+uint64 receiverId;
 
 int verbose = 0;
 
@@ -123,36 +124,24 @@ void initReceiverId() {
 		CURLBuffer* buf = _curl->get(url, "", headers);
 		
 		if(buf == NULL) {
-			printf("warning:  Something went wrong.  buf should not be null.\n");
+			printf("Something went wrong.  buf should not be null.\n");
 		} else {
-			printf("%s\n", buf->buffer);
-			fwrite(buf->buffer, 1, strlen(buf->buffer), idFile);
-			char _null = 0;
-			fwrite(&_null, 1, 1, idFile);
-			receiverId = string(buf->buffer);
-		}
-		
-		printf("server=%s", url.c_str());
-		
-		if(buf != NULL) {
+			cJSON* json = cJSON_Parse(buf->buffer);
+			if(!json) {
+				printf("Something went wrong.  json should not be null. %s\n", buf->buffer);
+			} else {
+				cJSON* idItem = cJSON_GetObjectItem(json, "id");
+				fprintf(idFile, "%ld", idItem->valueint);
+
+				cJSON_Delete(json);
+			}
+
 			delete buf;
 		}
-
+		
 		delete _curl;
 	} else {
-		// Get length of file
-		fseek(idFile, 0, SEEK_END);
-		int end = ftell(idFile);
-		fseek(idFile, 0, SEEK_SET);
-		
-		char* buf = new char [end + 1];
-		
-		memset(buf, 0, end + 1);
-		
-		fread(buf, 1, end, idFile);
-		
-		receiverId = string(buf);
-		delete[] buf;
+		fscanf(idFile, "%ld", &receiverId);
 	}
 
 	fclose(idFile);
@@ -324,13 +313,17 @@ int main(int argc, char** argv) {
 	memcpy(&receiver_addr, ((XBeeAddress*)buffer), sizeof(XBeeAddress));
 	
 	delete[] buffer;
+	
+	initReceiverId();
+	SensorDB sensorDB;
+	sensorDB.AddReceiver(receiverId);
 
 	ServerComm* serverComm = new ServerComm;
 	
 	if(!serverCommDisabled) {
 		serverComm->start();
 	}
-	
+		
 	printf("We are starting the loop\n");
 
 	while(1) {

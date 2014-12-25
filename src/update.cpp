@@ -1,6 +1,7 @@
 #include "update.h"
 #include "curl.h"
 #include "settings.h"
+#include "util.h"
 
 #include <fstream>
 #include <sstream>
@@ -10,7 +11,7 @@
 #include <unistd.h>
 #include <vector>
 
-extern string receiverId;
+extern uint64 receiverId;
 
 int doUpdateCheckerQuit = 0;
 void* updateChecker(void* arg) {
