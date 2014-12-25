@@ -148,15 +148,12 @@ SensorId lastPacketSensorId;
 
 void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	lastPacketSensorId = apiFrame->rx.rev1.packet.header.sensorId;
-	
+
+	hexdump(apiFrame, sizeof(Frame));
 	// We don't need to wait because the handler takes care of it.
 	XBAPI_Command(comm, API_CMD_ATDB, NULL, 0);
 
 	PacketRev1* packet = &apiFrame->rx.rev1.packet;
-	
-	if(packetsDebug && verbose >= 1) {
-		hexdump(apiFrame, sizeof(Frame));
-	}
 	
 	// Do our CRC16 compare here.
 	unsigned short crc16 = packet->header.crc16;
@@ -164,7 +161,7 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 	
 	CRC16 crcGen;
 	unsigned short calc_crc16 = crcGen.generate((unsigned char*)packet, sizeof(PacketRev1));
-	
+
 	if(calc_crc16 != crc16) {
 		printf("CRC16 hashes do not match.  %x!=%x, Discarding. sizeof(Packet)=%x\n", calc_crc16, crc16, sizeof(PacketRev1));
 		//hexdump(packet, sizeof(PacketRev1));
@@ -249,7 +246,6 @@ void HandlePacketRev1(XBeeCommunicator* comm, Frame* apiFrame) {
 			reply->header.revision = packet->header.revision;
 			reply->header.command = RECEIVER_ACK;
 			reply->header.sensorId = sensorId;
-			hexdump(reply, sizeof(PacketRev1));
 
 			CRC16 crcGen;
 
