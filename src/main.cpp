@@ -112,6 +112,17 @@ void init_sig_handlers() {
 void initReceiverId() {
 	// Load our application receiver ID.
 	FILE* idFile = fopen("receiver.id", "r");
+	if(idFile != NULL) {
+		fscanf(idFile, "%ld", &receiverId);
+
+		if(receiverId == 0) {
+			fclose(idFile);
+			idFile = NULL;
+		} else {
+			return;
+		}
+	}
+
 	if(idFile == NULL) {
 		idFile = fopen("receiver.id", "w");
 
@@ -140,8 +151,6 @@ void initReceiverId() {
 		}
 		
 		delete _curl;
-	} else {
-		fscanf(idFile, "%ld", &receiverId);
 	}
 
 	fclose(idFile);

@@ -317,7 +317,7 @@ bool SensorDB::AddReport(std::string sensor_id, time_t timestamp, double* probeV
 		} else if(curl.getResponseCode() != 201) {
 			// CURL response code should be 201
 
-			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\n", curl.getResponseCode(), buf->buffer);
+			printf("CURL error:  POST /api/reports response code = %d\nBuffer = \"%s\"\nJSON=\"%s\"", curl.getResponseCode(), buf->buffer, cPOST);
 			continue;
 		} else {
 			// Success.
