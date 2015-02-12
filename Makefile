@@ -8,7 +8,7 @@ C_SOURCES:=$(patsubst %.c, %.o, $(C_SRC))
 SOURCES := $(CPP_SOURCES) $(C_SOURCES)
 CXX:=g++
 CC:=gcc
-CXXFLAGS:=-std=gnu++11 -g
+CXXFLAGS:=-std=c++0x -g
 LDFLAGS:=`curl-config --libs` -lm -pthread
 LD:=g++
 

@@ -11,7 +11,7 @@ case $OS in
 	"Debian")
 		INSTALLER=apt-get
 		UBOOT_UENV=/boot/uboot/uEnv.txt
-		REMOVE_LIST=firefox gimp chromium
+		REMOVE_LIST="firefox gimp chromium"
 		;;
 	*)
 		echo Error Occurred.
