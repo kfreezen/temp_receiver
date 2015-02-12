@@ -34,4 +34,4 @@ ExecStart=/home/root/receiver/receiver.sh
 WantedBy=default.target
 EOF
 
-systemctl daemon-reload
+systemctl enable receiver.service
