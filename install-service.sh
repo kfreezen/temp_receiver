@@ -7,11 +7,15 @@ case $OS in
 		INSTALLER=opkg
 		UBOOT_UENV=/boot/uEnv.txt
 		REMOVE_LIST="firefox gimp chrome xfce-terminal"
+		WORKING_DIR=/home/root/receiver
+		EXEC_PATH=$WORKING_DIR/receiver.sh
 		;;
 	"Debian")
 		INSTALLER=apt-get
 		UBOOT_UENV=/boot/uboot/uEnv.txt
 		REMOVE_LIST="firefox gimp chromium"
+		WORKING_DIR=/root/receiver
+		EXEC_PATH=$WORKING_DIR/receiver.sh
 		;;
 	*)
 		echo Error Occurred.
@@ -27,8 +31,8 @@ Description=Start Temp Receiver
 
 [Service]
 Type=simple
-WorkingDirectory=/home/root/receiver
-ExecStart=/home/root/receiver/receiver.sh
+WorkingDirectory=$WORKING_DIR
+ExecStart=$EXEC_PATH
 
 [Install]
 WantedBy=default.target
